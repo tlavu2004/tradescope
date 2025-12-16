@@ -1,0 +1,16 @@
+spring:
+  application:
+    name: ingest-service
+
+  redis:
+    host: localhost
+    port: 6379
+
+binance:
+  ws:
+    base-url: wss://stream.binance.com:9443/ws
+    symbols: BTCUSDT
+    intervals: 1m
+ingest:
+  redis-channel-prefix: candles
+  max-candles-cache: 500
