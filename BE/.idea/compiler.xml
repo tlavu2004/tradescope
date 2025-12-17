@@ -8,6 +8,7 @@
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
         <module name="ingest-service" />
+        <module name="ws-service" />
         <module name="market-service" />
       </profile>
     </annotationProcessing>
@@ -16,6 +17,7 @@
     <option name="ADDITIONAL_OPTIONS_OVERRIDE">
       <module name="ingest-service" options="-parameters" />
       <module name="market-service" options="-parameters" />
+      <module name="ws-service" options="-parameters" />
     </option>
   </component>
 </project>

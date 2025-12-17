@@ -1,13 +1,13 @@
-package com.example.ingest_service;
+package com.example.ws_service;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-public class  IngestServiceApplication {
+public class WsServiceApplication {
 
 	public static void main(String[] args) {
-		SpringApplication.run(IngestServiceApplication.class, args);
+		SpringApplication.run(WsServiceApplication.class, args);
 	}
 
 }

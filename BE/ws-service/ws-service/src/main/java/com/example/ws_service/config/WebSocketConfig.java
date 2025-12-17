@@ -1,0 +1,23 @@
+package com.example.ws_service.config;
+
+import com.example.ws_service.websocket.MarketWebSocketHandler;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.web.socket.config.annotation.EnableWebSocket;
+import org.springframework.web.socket.config.annotation.WebSocketConfigurer;
+import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry;
+
+@Configuration
+@EnableWebSocket
+public class WebSocketConfig implements WebSocketConfigurer {
+	private final MarketWebSocketHandler handler;
+
+	public WebSocketConfig(MarketWebSocketHandler handler) {
+		this.handler = handler;
+	}
+	@Override
+	public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
+		registry.addHandler(handler, "/ws")
+				.setAllowedOrigins("*");
+	}
+
+}

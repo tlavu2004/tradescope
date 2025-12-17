@@ -1,7 +1,6 @@
 package com.example.ingest_service.service;
 
 import com.example.ingest_service.dto.Candle;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -9,13 +8,14 @@ import org.java_websocket.client.WebSocketClient;
 import org.java_websocket.handshake.ServerHandshake;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 import java.math.BigDecimal;
 import java.net.URI;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -27,70 +27,100 @@ public class BinanceService {
 	@Value("${binance.ws.base-url}")
 	private String baseUrl;
 
-	@Value("${binance.ws.symbols}")
-	private String symbols;
+	private final List<String> symbols = List.of(
+			"BTCUSDT",
+			"ETHUSDT",
+			"BNBUSDT",
+			"XRPUSDT",
+			"ADAUSDT"
+	);
 
-	@Value("${binance.ws.intervals}")
-	private String intervals;
-	@PostConstruct
-	private void startBinanceWebSocket(){
+	private final List<String> intervals = List.of(
+			"1m",
+			"5m",
+			"15m",
+			"1h",
+			"4h",
+			"1d"
+	);
+	private String buildStreamUrl() {
+		List<String> streams = new ArrayList<>();
 
-		String url = baseUrl + "/" + symbols.toLowerCase() + "@kline_" + intervals;
-		WebSocketClient client = createClient(url, symbols, intervals);
-		client.connect();
+		for (String s : symbols) {
+			for (String i : intervals) {
+				streams.add(s.toLowerCase() + "@kline_" + i);
+			}
+		}
 
+		return baseUrl + "?streams=" + String.join("/", streams);
 	}
-	private WebSocketClient createClient(String url, String symbol, String interval) {
+	@PostConstruct
+	public void startBinanceWebSocket() {
+		String url = buildStreamUrl();
+		WebSocketClient client = createClient(url);
+		client.connect();
+	}
+	private WebSocketClient createClient(String url) {
 		return new WebSocketClient(URI.create(url)) {
-
 
 			@Override
 			public void onOpen(ServerHandshake serverHandshake) {
-				log.info("WebSocket connected: {} - {}", symbol, interval);
+				log.info("WebSocket connected to {}", url);
 			}
 
 			@Override
 			public void onMessage(String message) {
 				try {
-					Candle candle = parseCandle(message, symbol, interval);
-					String key = String.format("candle:%s:%s", symbol, interval);
-					String candleJson = objectMapper.writeValueAsString(candle);
-					redisService.publishCandle(key,candleJson);
-					log.debug("Candle saved: {} at {}", symbol, candle.getOpenTime());
-					log.info("message:{}",candleJson);
-				} catch (JsonProcessingException e) {
-					log.error("Error parsing candle data: {}", message, e);
-				}
-				catch (Exception e) {
+					log.info("Received message: {}", message);
+					JsonNode node = objectMapper.readTree(message);
+					JsonNode data = node.get("data");
+
+					if (data != null) {
+						String stream = node.get("stream").asText();
+						String[] streamParts = stream.split("@");
+						String symbol = streamParts[0].toUpperCase();
+						String interval = streamParts[1].substring(6); // Removes "kline_"
+						Candle candle = parseCandle(data, symbol, interval);
+
+						String key = String.format("candle:%s:%s", symbol, interval);
+						String candleJson = objectMapper.writeValueAsString(candle);
+						log.info("Publishing to key: {}, candle: {}", key, candleJson);
+						redisService.publishCandle(key, candleJson);
+
+						log.debug("Candle saved: {} - {}", symbol, candle.getOpenTime());
+					}
+				} catch (Exception e) {
 					log.error("Error processing message", e);
 				}
 			}
 
 			@Override
-			public void onClose(int i, String s, boolean b) {
-
+			public void onClose(int code, String reason, boolean remote) {
+				log.info("WebSocket disconnected: code = {}, reason = {}, remote = {}", code, reason, remote);
 			}
-
 			@Override
 			public void onError(Exception e) {
 				log.error("WebSocket error", e);
 			}
 		};
 	}
-	private Candle parseCandle(String message, String symbol, String interval) throws JsonProcessingException {
-		JsonNode node = objectMapper.readTree(message);
-		JsonNode k = node.get("k");
+
+	private Candle parseCandle(JsonNode node, String symbol, String interval) {
+		JsonNode k = node.path("k"); // safe
+		if(k.isMissingNode()) return null; // skip nếu k không tồn tại
+
 		return Candle.builder()
 				.symbol(symbol)
 				.interval(interval)
-				.openTime(Instant.ofEpochMilli(k.get("t").asLong()))
-				.closeTime(Instant.ofEpochMilli(k.get("T").asLong()))
-				.open(new BigDecimal(k.get("o").asText()))
-				.high(new BigDecimal(k.get("h").asText()))
-				.low(new BigDecimal(k.get("l").asText()))
-				.close(new BigDecimal(k.get("c").asText()))
-				.volume(new BigDecimal(k.get("v").asText()))
-				.isClosed(k.get("x").asBoolean())
+				.openTime(Instant.ofEpochMilli(k.path("t").asLong(0)))
+				.closeTime(Instant.ofEpochMilli(k.path("T").asLong(0)))
+				.open(new BigDecimal(k.path("o").asText("0")))
+				.high(new BigDecimal(k.path("h").asText("0")))
+				.low(new BigDecimal(k.path("l").asText("0")))
+				.close(new BigDecimal(k.path("c").asText("0")))
+				.volume(new BigDecimal(k.path("v").asText("0")))
+				.isClosed(k.path("x").asBoolean(false))
 				.build();
 	}
+
 }
