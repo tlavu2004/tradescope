@@ -1,0 +1,13 @@
+httpx
+beautifulsoup4
+lxml
+trafilatura
+dateparser
+SQLAlchemy
+pyodbc
+python-dotenv
+schedule          # sử dụng cho scheduler đơn giản
+fastapi
+uvicorn
+pydantic
+nltk              # Sentiment analysis (VADER)
