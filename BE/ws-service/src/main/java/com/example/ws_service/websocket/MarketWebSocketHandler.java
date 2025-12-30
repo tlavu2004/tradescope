@@ -1,8 +1,8 @@
 package com.example.ws_service.websocket;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
@@ -31,6 +31,7 @@ public class MarketWebSocketHandler extends TextWebSocketHandler {
 
 	@Override
 	public void afterConnectionEstablished(WebSocketSession session) {
+		log.info("WS connected: {}", session.getId());
 		sessionTopics.put(session.getId(), ConcurrentHashMap.newKeySet());
 	}
 	@Override
@@ -77,14 +78,8 @@ public class MarketWebSocketHandler extends TextWebSocketHandler {
 		for (WebSocketSession session : subs) {
 			try {
 				if (session.isOpen()) {
-					executor.submit(() -> {
-						try {
-							log.info("Send to session {}", session.getId());
-							session.sendMessage(new TextMessage(payload));
-						} catch (IOException e) {
-							throw new RuntimeException(e);
-						}
-					});
+					log.info("Send to session {} : {}", session.getId(), payload);
+					session.sendMessage(new TextMessage(payload));
 				}
 			} catch (Exception e) {
 				log.error("WS send error", e);
