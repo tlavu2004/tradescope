@@ -1,0 +1,19 @@
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/crypto_db
+    username: crypto_user
+    password: crypto123
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+
+server:
+  port: 8088
+jwt:
+  secret: your_jwt_secret_key_12333333333333333333333
+  access-time: 360000000 # 1 hour in milliseconds
+  refresh-time: 864000000 # 24 hours in milliseconds
+google:
+  clientId: ${GOOGLE_CLIENT_ID:830106511321-pfkrcmes2fqg4n102aopnjfhefftl7lp.apps.googleusercontent.com}
