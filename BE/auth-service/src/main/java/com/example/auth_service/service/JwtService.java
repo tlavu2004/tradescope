@@ -25,7 +25,6 @@ public class JwtService {
 	@Value("${jwt.refresh-time}")
 	private long refreshTime;
 
-//	private final ITokenCacheService tokenCacheService;
 	public SecretKey getSecretKey() {
 		return Keys.hmacShaKeyFor(secretKey.getBytes());
 	}
