@@ -13,7 +13,7 @@ public class GlobalExceptionHandler {
 				.code(ErrorCode.INTERNAL_SERVER_ERROR.getCode())
 				.message(e.getMessage())
 				.build();
-		return ResponseEntity.status(ErrorCode.INTERNAL_SERVER_ERROR.getCode()).body(response);
+		return ResponseEntity.status(ErrorCode.INTERNAL_SERVER_ERROR.getHttpStatus()).body(response);
 	}
 	@ExceptionHandler(AppException.class)
 	public ResponseEntity<ApiResponse<?>> handleAppException(AppException e) {
