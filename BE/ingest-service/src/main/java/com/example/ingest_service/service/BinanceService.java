@@ -1,5 +1,6 @@
 package com.example.ingest_service.service;
 
+import com.example.ingest_service.configure.StorageServiceWebClient;
 import com.example.ingest_service.dto.request.Candle;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
@@ -26,7 +27,7 @@ public class BinanceService {
 	private final BinanceRestService binanceRestService;
 	@Value("${binance.ws.base-url}")
 	private String baseUrl;
-
+	private final StorageServiceWebClient storageServiceClient;
 	private final List<String> symbols = List.of(
 			"BTCUSDT",
 			"ETHUSDT",
@@ -72,13 +73,45 @@ public class BinanceService {
 		for (String symbol : symbols) {
 			for (String interval : intervals) {
 				try {
-					List<Candle> candles = binanceRestService.fetchLast1000ClosedCandles(symbol, interval);
-					String baseKey = String.format("candle:%s:%s", symbol, interval);
-					for (Candle c : candles) {
-						String json = objectMapper.writeValueAsString(c);
-						redisService.publishCandle(baseKey + ":closed", json);
+					Long lastOpenTime = storageServiceClient.getLastOpenTime(symbol, interval);
+					long intervalMs = intervalToMillis(interval);
+					long now = System.currentTimeMillis();
+					long nowOpenTime = alignToInterval(now, intervalMs);
+
+					List<Candle> candlesToBackfill = new ArrayList<>();
+
+					if (lastOpenTime == null) {
+
+						int limit = 1000;
+						candlesToBackfill = binanceRestService.fetchLastClosedCandles(
+								symbol, interval, limit
+						);
+						log.info("[Backfill] {} {} first time, fetched {} candles",
+								symbol, interval, candlesToBackfill.size());
+					} else {
+						long missing = (nowOpenTime - lastOpenTime) / intervalMs;
+						log.info("[Backfill] {} {}: lastOpenTime={}, nowOpenTime={}, missing={}",
+								symbol, interval, lastOpenTime, nowOpenTime, missing);
+						if (missing <= 0) {
+							log.info("[Backfill] {} {}: no missing candles (lastOpenTime={}, nowOpenTime={})",
+									symbol, interval, lastOpenTime, nowOpenTime);
+						} else {
+							int limit = (int) Math.min(missing, 1000);
+							candlesToBackfill = binanceRestService.fetchClosedCandlesAfter(
+									symbol, interval, lastOpenTime, limit
+							);
+							log.info("[Backfill] {} {}: missing={}, fetched={}",
+									symbol, interval, missing, candlesToBackfill.size());
+						}
 					}
-					log.info("Backfilled {} candles for {} {}", candles.size(), symbol, interval);
+
+					if (!candlesToBackfill.isEmpty()) {
+						String baseKey = String.format("candle:%s:%s", symbol, interval);
+						for (Candle c : candlesToBackfill) {
+							String json = objectMapper.writeValueAsString(c);
+							redisService.publishCandle(baseKey + ":closed", json);
+						}
+					}
 				} catch (Exception e) {
 					log.error("Error backfilling {} {}: {}", symbol, interval, e.getMessage(), e);
 				}
@@ -96,7 +129,6 @@ public class BinanceService {
 			@Override
 			public void onMessage(String message) {
 				try {
-					log.info("Received message: {}", message);
 					JsonNode node = objectMapper.readTree(message);
 					JsonNode data = node.get("data");
 
@@ -109,7 +141,6 @@ public class BinanceService {
 
 						String key = String.format("candle:%s:%s", symbol, interval);
 						String candleJson = objectMapper.writeValueAsString(candle);
-						log.info("Publishing to key: {}, candle: {}", key, candleJson);
 						redisService.publishCandle(key + ":realtime", candleJson);
 						if (candle != null && Boolean.TRUE.equals(candle.getIsClosed())) {
 							redisService.publishCandle(key + ":closed", candleJson);
@@ -147,5 +178,19 @@ public class BinanceService {
 				.isClosed(k.path("x").asBoolean(false))
 				.build();
 	}
+	private long intervalToMillis(String interval) {
+		return switch (interval) {
+			case "1m"  -> 60_000L;
+			case "5m"  -> 5 * 60_000L;
+			case "15m" -> 15 * 60_000L;
+			case "1h"  -> 60 * 60_000L;
+			case "4h"  -> 4 * 60 * 60_000L;
+			case "1d"  -> 24 * 60 * 60_000L;
+			default    -> throw new IllegalArgumentException("Unsupported interval " + interval);
+		};
+	}
 
+	private long alignToInterval(long ts, long intervalMs) {
+		return ts - (ts % intervalMs);
+	}
 }

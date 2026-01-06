@@ -22,9 +22,8 @@ ingest:
   max-candles-cache: 500
 
 storage-service:
-  url: http://localhost:8082
+  base-url: http://localhost:8082
 
 logging:
   level:
-    com.example. ingest: INFO
-    io.lettuce. core: DEBUG
+    com.example.ingest: INFO
