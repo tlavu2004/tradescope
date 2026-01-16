@@ -6,10 +6,10 @@ import '../styles/Login.css';
 interface LoginResponse {
   code: number;
   message: string;
-  data: {
-    accessToken: string;
-    refreshToken: string;
-    isAuthenticated: boolean;
+  data?: {
+    accessToken?: string;
+    refreshToken?: string;
+    isAuthenticated?: boolean;
   };
 }
 
@@ -34,7 +34,7 @@ export const Login = () => {
         body: JSON.stringify({ userName, password }),
       });
 
-      const result: any = await response.json();
+      const result = (await response.json()) as LoginResponse;
       console.debug('Login response:', result);
 
       if (response.ok) {
@@ -51,7 +51,13 @@ export const Login = () => {
         return;
       }
 
-      setError(result?.message || 'Đăng nhập thất bại');
+      // Map backend messages to friendly Vietnamese messages
+      const backendMsg = result?.message || '';
+      if (backendMsg.toLowerCase().includes('unauthenticated') || backendMsg.toLowerCase().includes('user_not_found') || backendMsg.toLowerCase().includes('invalid')) {
+        setError('Tên đăng nhập hoặc mật khẩu không đúng');
+      } else {
+        setError(backendMsg || 'Đăng nhập thất bại');
+      }
     } catch (err) {
       setError('Lỗi kết nối đến server');
       console.error('Login error:', err);
