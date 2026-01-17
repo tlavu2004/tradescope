@@ -7,6 +7,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Mono;
+
+import java.util.Optional;
 
 @Component
 @RequiredArgsConstructor
@@ -15,28 +18,18 @@ public class StorageServiceWebClient {
 	private final WebClient webClient;
 	@Value("${storage-service.base-url}")
 	private String storageServiceBaseUrl;
-	public Long getLastOpenTime(String symbol, String interval) {
-		try{
-			ApiResponseLong response = webClient.get()
-					.uri(uriBuilder -> uriBuilder
-							.path("/candles/last-open-time")
-							.queryParam("symbol", symbol)
-							.queryParam("interval", interval)
-							.build())
-					.retrieve()
-					.bodyToMono(ApiResponseLong.class)
-					.block();
+	public Optional<Long> getLastOpenTime(String symbol, String interval) {
 
-			if (response == null) {
-				log.warn("StorageService returned null for last-open-time {} {}", symbol, interval);
-				return null;
-			}
-			return response.getData();
-		}
-		catch (Exception e) {
-			log.error("Error while calling StorageService for last-open-time {} {}: {}", symbol, interval, e.getMessage());
-			return null;
-		}
-
+		ApiResponseLong response = webClient.get()
+				.uri(uriBuilder -> uriBuilder
+						.path("/candles/last-open-time")
+						.queryParam("symbol", symbol)
+						.queryParam("interval", interval)
+						.build())
+				.retrieve()
+				.bodyToMono(ApiResponseLong.class)
+				.block();
+		return Optional.ofNullable(response).map(ApiResponseLong::getData);
 	}
+
 }

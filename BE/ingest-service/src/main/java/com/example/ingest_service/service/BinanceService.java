@@ -1,6 +1,7 @@
 package com.example.ingest_service.service;
 
 import com.example.ingest_service. configure.StorageServiceWebClient;
+import com.example.ingest_service.configure.TradeProperties;
 import com.example.ingest_service. dto.request. Candle;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +17,7 @@ import java.math.BigDecimal;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
@@ -28,32 +30,16 @@ public class BinanceService {
 	private final ObjectMapper objectMapper = new ObjectMapper();
 	private final BinanceRestService binanceRestService;
 	private final StorageServiceWebClient storageServiceClient;
+	private final TradeProperties tradeProperties;
 
 	@Value("${binance.ws.base-url}")
 	private String baseUrl;
 
-	private final List<String> symbols = List.of(
-			"BTCUSDT",
-			"ETHUSDT",
-			"BNBUSDT",
-			"XRPUSDT",
-			"ADAUSDT"
-	);
-
-	private final List<String> intervals = List.of(
-			"1m",
-			"5m",
-			"15m",
-			"1h",
-			"4h",
-			"1d"
-	);
-
 	private String buildStreamUrl() {
 		List<String> streams = new ArrayList<>();
 
-		for (String s : symbols) {
-			for (String i : intervals) {
+		for (String s : tradeProperties.getSymbols()) {
+			for (String i : tradeProperties.getIntervals()) {
 				streams.add(s. toLowerCase() + "@kline_" + i);
 			}
 		}
@@ -63,67 +49,85 @@ public class BinanceService {
 
 	@PostConstruct
 	public void startBinanceWebSocket() {
+		backfillOnStart();
 		String url = buildStreamUrl();
 		WebSocketClient client = createClient(url);
 		client.connect();
 		log.info("WebSocket connecting to {}", url);
 
-		CompletableFuture.runAsync(this::backfillOnStart)
-				.exceptionally(ex -> {
-					log.error("Backfill failed", ex);
-					return null;
-				});
 	}
 
 	private void backfillOnStart() {
-		for (String symbol : symbols) {
-			for (String interval : intervals) {
+		for (String symbol : tradeProperties.getSymbols()) {
+			for (String interval : tradeProperties.getIntervals()) {
 				try {
-					Long lastOpenTime = storageServiceClient.getLastOpenTime(symbol, interval);
-					long intervalMs = intervalToMillis(interval);
-					long now = System.currentTimeMillis();
-					long nowOpenTime = alignToInterval(now, intervalMs);
-
-					List<Candle> candlesToBackfill = new ArrayList<>();
-
-					if (lastOpenTime == null) {
-						int limit = 1000;
-						candlesToBackfill = binanceRestService.fetchLastClosedCandles(
-								symbol, interval, limit
-						);
-						log.info("[Backfill] {} {} first time, fetched {} candles",
-								symbol, interval, candlesToBackfill.size());
-					} else {
-						long missing = (nowOpenTime - lastOpenTime) / intervalMs;
-						log.info("[Backfill] {} {}: lastOpenTime={}, nowOpenTime={}, missing={}",
-								symbol, interval, lastOpenTime, nowOpenTime, missing);
-						if (missing <= 0) {
-							log.info("[Backfill] {} {}: no missing candles (lastOpenTime={}, nowOpenTime={})",
-									symbol, interval, lastOpenTime, nowOpenTime);
-						} else {
-							int limit = (int) Math.min(missing, 1000);
-							lastOpenTime += (missing - limit) * intervalMs;
-							candlesToBackfill = binanceRestService.fetchClosedCandlesAfter(
-									symbol, interval, lastOpenTime, limit
-							);
-							log.info("[Backfill] {} {}: missing={}, fetched={}",
-									symbol, interval, missing, candlesToBackfill.size());
-						}
-					}
-
-					if (!candlesToBackfill.isEmpty()) {
-						for (Candle c : candlesToBackfill) {
-							String candleJson = objectMapper.writeValueAsString(c);
-							kafkaService.publishClosedCandle(symbol, interval, candleJson);
-						}
-						log.info("[Backfill] Published {} closed candles to Kafka:  {} {}",
-								candlesToBackfill.size(), symbol, interval);
-					}
+					backfillSymbolInterval(symbol, interval);
 				} catch (Exception e) {
-					log.error("Error backfilling {} {}:  {}", symbol, interval, e. getMessage(), e);
+					log.error("Lỗi khi backfill {} {}: {}",
+							symbol, interval, e.getMessage(), e);
 				}
 			}
 		}
+	}
+
+	private void backfillSymbolInterval(String symbol, String interval) throws Exception {
+		Optional<Long> lastOpenTimeOpt = storageServiceClient.getLastOpenTime(symbol, interval);
+		long intervalMs = intervalToMillis(interval);
+		long now = System.currentTimeMillis();
+		long nowOpenTime = alignToInterval(now, intervalMs);
+
+		List<Candle> candlesToBackfill;
+
+		if (lastOpenTimeOpt.isEmpty()) {
+
+			candlesToBackfill = binanceRestService.fetchLastClosedCandles(
+					symbol, interval, 1000
+			);
+			log.info("[Backfill] {} {} lần đầu, lấy được {} nến",
+					symbol, interval, candlesToBackfill.size());
+		} else {
+			long lastOpenTime = lastOpenTimeOpt.get();
+			long missingCount = (nowOpenTime - lastOpenTime) / intervalMs;
+
+			log.info("[Backfill] {} {}: lastOpenTime={}, nowOpenTime={}, thiếu={}",
+					symbol, interval, lastOpenTime, nowOpenTime, missingCount);
+
+			if (missingCount <= 0) {
+				log.info("[Backfill] {} {}: không thiếu nến nào", symbol, interval);
+				return;
+			}
+
+			int limit = (int) Math.min(missingCount, 1000);
+			long startTime = nowOpenTime - (limit * intervalMs);
+
+			if (missingCount > 1000) {
+				log.warn("[Backfill] {} {}: thiếu {} nến, chỉ lấy {} nến gần nhất",
+						symbol, interval, missingCount, limit);
+			}
+
+			candlesToBackfill = binanceRestService.fetchClosedCandlesAfter(
+					symbol, interval, startTime, limit
+			);
+			log.info("[Backfill] {} {}: lấy được {} nến",
+					symbol, interval, candlesToBackfill.size());
+		}
+
+		publishCandles(symbol, interval, candlesToBackfill);
+	}
+
+	private void publishCandles(String symbol, String interval, List<Candle> candles)
+			throws Exception {
+		if (candles.isEmpty()) {
+			return;
+		}
+
+		for (Candle candle : candles) {
+			String candleJson = objectMapper.writeValueAsString(candle);
+			kafkaService.publishClosedCandle(symbol, interval, candleJson);
+		}
+
+		log.info("[Backfill] Đã publish {} nến lên Kafka: {} {}",
+				candles.size(), symbol, interval);
 	}
 
 	private WebSocketClient createClient(String url) {
@@ -196,6 +200,7 @@ public class BinanceService {
 	private long intervalToMillis(String interval) {
 		return switch (interval) {
 			case "1m" -> 60_000L;
+			case "2m" -> 2 * 60_000L;
 			case "5m" -> 5 * 60_000L;
 			case "15m" -> 15 * 60_000L;
 			case "1h" -> 60 * 60_000L;
