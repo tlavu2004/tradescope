@@ -79,11 +79,7 @@ public class CandleService {
 			String interval,
 			boolean isVip
 	) {
-		int limit = 0;
-		if (!isVip) {
-			limit = 1000;
-		}
-		else limit = 1500;
+		int limit = 1000;
 		String key = "candles:" + symbol + ":" + interval;
 		Long total = redisTemplate.opsForZSet().zCard(key);
 		if (total == null || total == 0) {
@@ -114,6 +110,21 @@ public class CandleService {
 		List<Candle> candles = candleRepository.findRecentCandles(symbol, interval, pageable);
 		candles.sort(Comparator.comparingLong(Candle::getOpenTime));
 		return candles;
+	}
+	public List<Candle> getCandlesBeforeOpenTime(
+			String symbol,
+			String interval,
+			long openTime
+	) {
+		Pageable pageable = PageRequest.of(0, 500);
+
+		return candleRepository
+				.findBySymbolAndIntervalAndOpenTimeLessThanOrderByOpenTimeAsc(
+						symbol,
+						interval,
+						openTime,
+						pageable
+				);
 	}
 	@Transactional
 	public void batchInsert(List<Candle> candles) {

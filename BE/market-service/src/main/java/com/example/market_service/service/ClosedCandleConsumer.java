@@ -20,7 +20,7 @@ public class ClosedCandleConsumer {
 	private final ObjectMapper objectMapper;
 	private final CandleService candleService;
 	private final RedisTemplate<String, String> redisTemplate;
-	private static final int MAX_CANDLES = 1500;
+	private static final int MAX_CANDLES = 1000;
 	@KafkaListener(
 			topics = "${kafka.topics.closed-candles}",
 			groupId = "candle-redis-group",

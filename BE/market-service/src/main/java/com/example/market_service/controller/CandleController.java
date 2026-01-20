@@ -46,12 +46,26 @@ public class CandleController {
 			@RequestParam("interval") String interval
 	) {
 		boolean isVip = securityUtils.hasRole("VIP");
+		log.info("User VIP status: {}", isVip);
+		log.info("currentUser: {}", securityUtils.getAuthentication());
 		List<Candle> candles =
 				candleService.getRecentCandles(symbol, interval, isVip);
 
 		return ApiResponse.<List<Candle>>builder()
 				.data(candles)
 				.message("Fetched recent candles successfully")
+				.build();
+	}
+	@GetMapping("/before-time")
+	public ApiResponse<List<Candle>> getCandlesBeforeTime(
+			@RequestParam("symbol") String symbol,
+			@RequestParam("interval") String interval,
+			@RequestParam("beforeTime") Long beforeTime
+	) {
+		List<Candle> candles = candleService.getCandlesBeforeOpenTime(symbol, interval, beforeTime);
+		return ApiResponse.<List<Candle>>builder()
+				.data(candles)
+				.message("Fetched candles before specified time successfully")
 				.build();
 	}
 }

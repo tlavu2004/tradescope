@@ -73,4 +73,10 @@ public interface CandleRepository extends JpaRepository<Candle, Long> {
 			@Param("volume") BigDecimal volume
 	);
 
+	List<Candle> findBySymbolAndIntervalAndOpenTimeLessThanOrderByOpenTimeAsc(
+			String symbol,
+			String interval,
+			long openTime,
+			Pageable pageable
+	);
 }
