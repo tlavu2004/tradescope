@@ -73,6 +73,31 @@ export const CandlestickChart = ({ symbol, intervalSeconds = 60, useMockOnly = f
       wickDownColor: '#ef5350',
     });
 
+    // Add volume histogram series at the bottom
+    const volumeSeries = (chart as any).addHistogramSeries({
+      color: '#26a69a',
+      priceFormat: {
+        type: 'volume',
+      },
+      priceScaleId: '', // overlay on same pane
+    });
+
+    // Set volume series to bottom 20% of chart
+    volumeSeries.priceScale().applyOptions({
+      scaleMargins: {
+        top: 0.8, // highest point at 80% from top
+        bottom: 0,
+      },
+    });
+
+    // Set candlestick to top 80% of chart
+    candlestickSeries.priceScale().applyOptions({
+      scaleMargins: {
+        top: 0.05,
+        bottom: 0.25, // leave room for volume
+      },
+    });
+
     chartRef.current = chart;
 
     // subscribe to crosshair moves to show OHLCV(V, %) in a small overlay
@@ -167,7 +192,9 @@ export const CandlestickChart = ({ symbol, intervalSeconds = 60, useMockOnly = f
 
     // start with empty data; do NOT seed mock candles so UI only shows real backend/realtime data
     const seed: CandlestickData[] = [];
+    const volumeSeed: { time: any; value: number; color: string }[] = [];
     candlestickSeries.setData(seed as any);
+    volumeSeries.setData(volumeSeed as any);
 
     // Try to fetch cached recent candles from storage-service (Redis cache) and replace seed before subscribing
     // Buffer limits and helpers: used by history fetch and flush
@@ -357,6 +384,13 @@ export const CandlestickChart = ({ symbol, intervalSeconds = 60, useMockOnly = f
         seed.push(...out);
         try {
           candlestickSeries.setData(seed as any);
+          // Update volume histogram with colors matching candle direction
+          const volumeData = seed.map((c: any) => ({
+            time: c.time,
+            value: c.volume || 0,
+            color: c.close >= c.open ? 'rgba(38, 166, 154, 0.5)' : 'rgba(239, 83, 80, 0.5)',
+          }));
+          volumeSeries.setData(volumeData);
         } catch (e) {
           console.warn('setData failed, retrying sanitized', e);
           candlestickSeries.setData(sanitizeAndClamp(seed) as any);
