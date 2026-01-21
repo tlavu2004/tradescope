@@ -80,8 +80,15 @@ public interface CandleRepository extends JpaRepository<Candle, Long> {
 			long openTime,
 			Pageable pageable
 	);
-	Optional<Candle> findTopBySymbolAndIntervalOrderByOpenTimeDesc(
-			String symbol,
-			String interval
+	@Query(value = """
+    SELECT DISTINCT ON (symbol) *
+			    FROM candles
+			    WHERE interval = :interval
+			    ORDER BY symbol, open_time DESC
+""", nativeQuery = true)
+	List<Candle> findLatestCandlesByInterval(
+			@Param("interval") String interval
 	);
+
+
 }

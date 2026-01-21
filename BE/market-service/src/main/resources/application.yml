@@ -73,3 +73,18 @@ google:
 binance:
   rest:
     base-url: https://api.binance.com/api/v3
+trades:
+  symbols:
+    - BTCUSDT
+    - BTCUSD
+    - ETHUSDT
+    - BNBUSDT
+    - XRPUSDT
+  intervals:
+    - 1m
+    - 5m
+    - 15m
+    - 1h
+    - 4h
+    - 1d
+

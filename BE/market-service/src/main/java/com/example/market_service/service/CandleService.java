@@ -1,5 +1,6 @@
 package com.example.market_service.service;
 
+import com.example.market_service.Configure.TradeProperties;
 import com.example.market_service.Mapper.CandleMapper;
 import com.example.market_service.dto.request.CandleCreationRequest;
 import com.example.market_service.dto.response.CandleResponse;
@@ -38,6 +39,7 @@ public class CandleService {
 	private final ObjectMapper objectMapper;
 	private final JdbcTemplate jdbcTemplate;
 	private final RestTemplate restTemplate = new RestTemplate();
+	private TradeProperties tradeProperties;
 
 	public Long getLastOpenTime(String symbol, String interval) {
 		return candleRepository.findLastOpenTime(symbol, interval);
@@ -206,9 +208,9 @@ public class CandleService {
 			return List.of();
 		}
 	}
-	public Candle getLatestPrice(String symbol, String interval) {
-		return candleRepository.findTopBySymbolAndIntervalOrderByOpenTimeDesc(symbol, interval)
-				.orElseThrow(() -> new RuntimeException("Candle not found for " + symbol + " " + interval));
+	public List<Candle> getLatestPrice(String interval) {
+		return candleRepository.findLatestCandlesByInterval(interval);
+
 	}
 
 }

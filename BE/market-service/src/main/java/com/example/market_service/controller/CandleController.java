@@ -89,13 +89,12 @@ public class CandleController {
 				.build();
 	}
 	@GetMapping("/latest-candle")
-	public ApiResponse<Candle> getLatestCandle(
-			@RequestParam("symbol") String symbol,
+	public ApiResponse<List<Candle>> getLatestCandle(
 			@RequestParam("interval") String interval
 	) {
 
-		return ApiResponse.<Candle>builder()
-				.data(candleService.getLatestPrice(symbol, interval))
+		return ApiResponse.<List<Candle>>builder()
+				.data(candleService.getLatestPrice(interval))
 				.message("Fetched latest candle successfully")
 				.build();
 	}
