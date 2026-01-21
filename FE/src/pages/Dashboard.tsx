@@ -12,10 +12,11 @@ export const Dashboard = () => {
   const handleLogout = async () => {
     const accessToken = localStorage.getItem('accessToken');
     try {
+      const API_BASE = (import.meta.env.VITE_API_BASE as string) || 'http://localhost:8082';
       if (accessToken) {
-        await fetch('http://localhost:8088/auth/logout', {
+        await fetch(`${API_BASE}/api/v1/auth/logout`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${accessToken}` },
           body: JSON.stringify({ accessToken }),
         });
       }

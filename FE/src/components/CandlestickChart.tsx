@@ -246,8 +246,12 @@ export const CandlestickChart = ({ symbol, intervalSeconds = 60, useMockOnly = f
         const backend = computeBackendRequest(intervalSec, limit);
         const interval = backend.interval;
         const pageSize = backend.pageSize ?? limit;
-        const url = `http://localhost:8082/candles/recent?symbol=${encodeURIComponent(sym)}&interval=${interval}&pageSize=${pageSize}`;
-        const resp = await fetch(url);
+        const API_BASE = (import.meta.env.VITE_API_BASE as string) || 'http://localhost:8082';
+        const url = `${API_BASE}/api/v1/candles/recent?symbol=${encodeURIComponent(sym)}&interval=${interval}&pageSize=${pageSize}`;
+        const token = localStorage.getItem('accessToken');
+        const headers: Record<string, string> = {};
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        const resp = await fetch(url, { headers });
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         const api = await resp.json();
         // ApiResponse.data is List<CandleCreationRequest> where time is in ms
