@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { sharedWs } from '../lib/sharedWs';
+import { priceStore } from '../lib/priceStore';
 import '../styles/Watchlist.css';
 
 interface WatchSymbol {
@@ -71,7 +71,6 @@ export const Watchlist = ({ onSymbolSelect, selectedSymbol }: WatchlistProps) =>
 
   const containerRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-  const openPricesRef = useRef<Record<string, number>>({});
 
   // Save width to localStorage
   useEffect(() => {
@@ -96,48 +95,34 @@ export const Watchlist = ({ onSymbolSelect, selectedSymbol }: WatchlistProps) =>
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [menuOpen]);
 
-  // Subscribe to WebSocket for real-time price updates
+  // Subscribe to priceStore for real-time price updates (centralized WebSocket data)
   useEffect(() => {
-    const handlers: Record<string, (c: any) => void> = {};
+    // Subscribe all symbols to priceStore (it handles deduplication internally)
+    const symbolCodes = symbols.map((s) => s.code);
+    priceStore.subscribeAll(symbolCodes, '1m');
 
-    symbols.forEach((sym) => {
-      handlers[sym.code] = (candle: any) => {
-        const closePrice = Number(candle.close);
-        const openPrice = Number(candle.open);
-        const volume = Number(candle.volume) || 0;
-
-        // Store open price for change calculation
-        if (!openPricesRef.current[sym.code] || candle.time !== undefined) {
-          openPricesRef.current[sym.code] = openPrice;
-        }
-
-        const storedOpen = openPricesRef.current[sym.code] || openPrice;
-        const change = closePrice - storedOpen;
-        const changePercent = storedOpen > 0 ? (change / storedOpen) * 100 : 0;
-
-        setSymbols((prev) =>
-          prev.map((s) =>
-            s.code === sym.code
-              ? {
-                ...s,
-                price: closePrice,
-                change,
-                changePercent,
-                volume,
-                openPrice: storedOpen,
-              }
-              : s
-          )
-        );
-      };
-
-      sharedWs.subscribe(sym.code, handlers[sym.code], '1m');
+    // Listen for price updates
+    const unsubscribe = priceStore.addListener((prices) => {
+      setSymbols((prev) =>
+        prev.map((s) => {
+          const priceData = prices.get(s.code);
+          if (priceData) {
+            return {
+              ...s,
+              price: priceData.price,
+              change: priceData.change,
+              changePercent: priceData.changePercent,
+              volume: priceData.volume,
+              openPrice: priceData.open,
+            };
+          }
+          return s;
+        })
+      );
     });
 
     return () => {
-      Object.entries(handlers).forEach(([code, handler]) => {
-        sharedWs.unsubscribe(code, handler);
-      });
+      unsubscribe();
     };
   }, []); // Only run once on mount
 
