@@ -585,11 +585,11 @@ export const CandlestickChart = ({ symbol, intervalSeconds = 60, useMockOnly = f
           <div style={{ background: 'rgba(20,24,30,0.9)', color: '#d1d4dc', padding: '6px 8px', borderRadius: 6, minWidth: 140, maxWidth: 180, width: 'auto', fontSize: 11, whiteSpace: 'nowrap', boxSizing: 'border-box' }}>
             <div style={{ fontWeight: 600, marginBottom: 4, fontSize: 12 }}>{symbol.toUpperCase()}</div>
             <div style={{ marginBottom: 6, fontSize: 11 }}>Time: {new Date((hover.time as number) * 1000).toLocaleString()}</div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}><div>O:</div><div>{typeof hover.open === 'number' ? hover.open.toFixed(2) : '-'}</div></div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}><div>H:</div><div>{typeof hover.high === 'number' ? hover.high.toFixed(2) : '-'}</div></div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}><div>L:</div><div>{typeof hover.low === 'number' ? hover.low.toFixed(2) : '-'}</div></div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}><div>C:</div><div>{typeof hover.close === 'number' ? hover.close.toFixed(2) : '-'}</div></div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}><div>V:</div><div>{typeof (hover as any).vChange === 'number' ? ((hover as any).vChange >= 0 ? '+' : '') + (hover as any).vChange.toFixed(2) : '-'} {typeof (hover as any).vPercent === 'number' ? '(' + ((hover as any).vPercent >= 0 ? '+' : '') + (hover as any).vPercent.toFixed(2) + '%)' : ''}</div></div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}><div>O:</div><div>{typeof hover.open === 'number' ? hover.open.toFixed(4) : '-'}</div></div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}><div>H:</div><div>{typeof hover.high === 'number' ? hover.high.toFixed(4) : '-'}</div></div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}><div>L:</div><div>{typeof hover.low === 'number' ? hover.low.toFixed(4) : '-'}</div></div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}><div>C:</div><div>{typeof hover.close === 'number' ? hover.close.toFixed(4) : '-'}</div></div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}><div>V:</div><div>{typeof (hover as any).vChange === 'number' ? ((hover as any).vChange >= 0 ? '+' : '') + (hover as any).vChange.toFixed(4) : '-'} {typeof (hover as any).vPercent === 'number' ? '(' + ((hover as any).vPercent >= 0 ? '+' : '') + (hover as any).vPercent.toFixed(2) + '%)' : ''}</div></div>
           </div>
         ) : null}
       </div>
