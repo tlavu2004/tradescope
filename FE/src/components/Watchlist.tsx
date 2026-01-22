@@ -99,7 +99,7 @@ export const Watchlist = ({ onSymbolSelect, selectedSymbol }: WatchlistProps) =>
   useEffect(() => {
     // Subscribe all symbols to priceStore (it handles deduplication internally)
     const symbolCodes = symbols.map((s) => s.code);
-    priceStore.subscribeAll(symbolCodes, '1m');
+    priceStore.subscribeAll(symbolCodes);
 
     // Listen for price updates
     const unsubscribe = priceStore.addListener((prices) => {
@@ -112,8 +112,8 @@ export const Watchlist = ({ onSymbolSelect, selectedSymbol }: WatchlistProps) =>
               price: priceData.price,
               change: priceData.change,
               changePercent: priceData.changePercent,
-              volume: priceData.volume,
-              openPrice: priceData.open,
+              volume: priceData.volume24h,      // Use 24h volume from 1d candle
+              openPrice: priceData.dailyOpen,   // Use daily open for reference
             };
           }
           return s;
