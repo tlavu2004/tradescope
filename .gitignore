@@ -38,3 +38,6 @@ build/
 # Generated files
 **/*.log
 **/*.pid
+
+### Node.js ###
+**/node_modules/
