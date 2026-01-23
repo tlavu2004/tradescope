@@ -167,10 +167,10 @@ services:
     networks:
       - crypto-network
     deploy:
-      replicas: 1
+      replicas: 3
       resources:
         limits:
-          memory: 768M
+          memory: 512M
 
   nginx:
     image: nginx:alpine
