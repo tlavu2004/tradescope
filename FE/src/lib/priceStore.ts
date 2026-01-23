@@ -28,7 +28,7 @@ interface DailyCandle {
 
 type PriceListener = (prices: Map<string, SymbolPrice>) => void;
 
-const API_BASE = 'http://localhost:8082/api/v1';
+const API_BASE = `${(import.meta.env.VITE_API_BASE as string) || 'http://localhost'}/api/v1`;
 
 class PriceStore {
   private prices: Map<string, SymbolPrice> = new Map();
