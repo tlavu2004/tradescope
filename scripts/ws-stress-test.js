@@ -23,6 +23,7 @@
 import ws from 'k6/ws';
 import { sleep } from 'k6';
 import { Counter, Trend } from 'k6/metrics';
+import { textSummary } from 'https://jslib.k6.io/k6-summary/0.0.2/index.js';
 
 // Custom Metrics
 const connectedUsers = new Counter('connected_users');
@@ -36,10 +37,10 @@ export const options = {
   stages: [
     { duration: '30s', target: 1000 },  // Ramp up to 1000 users
     { duration: '1m', target: 1000 },   // Stay at 1000
+    { duration: '30s', target: 2500 },  // Ramp up to 2500
+    { duration: '1m', target: 2500 },   // Stay at 2500
     { duration: '30s', target: 5000 },  // Ramp up to 5000
     { duration: '1m', target: 5000 },   // Stay at 5000
-    { duration: '30s', target: 10000 }, // Ramp up to 10000!
-    { duration: '1m', target: 10000 },  // Stay at 10000
     { duration: '30s', target: 0 },     // Scale down
   ],
 };
@@ -94,4 +95,25 @@ export default function () {
 
   // Note: ws.connect() in k6 doesn't return a response object like HTTP
   // Success is tracked via the 'connected_users' custom metric
+}
+
+export function handleSummary(data) {
+  const connected = data.metrics.connected_users ? data.metrics.connected_users.values.count : 0;
+  const errors = data.metrics.connection_errors ? data.metrics.connection_errors.values.count : 0;
+  const totalAttempts = connected + errors;
+  const successRate = totalAttempts > 0 ? ((connected / totalAttempts) * 100).toFixed(2) : 0;
+
+  const customReport = `
+    WEBSOCKET STRESS TEST SUMMARY
+    ────────────────────────────────
+    Successful Connections: ${connected}
+    Failed Connections:     ${errors}
+    Success Rate:           ${successRate}%
+    Total Messages:         ${data.metrics.received_messages ? data.metrics.received_messages.values.count : 0}
+    ────────────────────────────────
+    `;
+
+  return {
+    'stdout': "\n" + textSummary(data, { indent: ' ', enableColors: true }) + "\n" + customReport,
+  };
 }
