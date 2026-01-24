@@ -36,9 +36,9 @@ export const options = {
   // Define stages to simulate ramping up traffic
   stages: [
     { duration: '30s', target: 50 },    // Ramp up slowly
-    { duration: '30s', target: 500 },   // Ramp up to 500
+    { duration: '1m', target: 500 },    // Ramp up to 500
     { duration: '3m', target: 1000 },   // Stay at 1000 (Longer duration to ensure all connect)
-    { duration: '20s', target: 0 },     // Scale down
+    { duration: '30s', target: 0 },     // Scale down
   ],
 };
 
