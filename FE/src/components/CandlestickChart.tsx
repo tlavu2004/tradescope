@@ -51,11 +51,46 @@ export const CandlestickChart = ({ symbol, intervalSeconds = 60, useMockOnly = f
       },
       timeScale: {
         timeVisible: true,
-        secondsVisible: true,
+        secondsVisible: false,
         borderColor: '#2b2f3a',
+        tickMarkFormatter: (time: number, tickMarkType: any, locale: string) => {
+          const date = new Date(time * 1000);
+          // Simple check: if hours/minutes are 0 and we are zooming out, we might want date. 
+          // But 'tickMarkType' is reliable if imported. 
+          // For now, simple logic:
+          // If we are showing time (Type 0, 1):
+          // Actually, let's just format to readable local string logic:
+          // If it looks like midnight local, show date?
+          // Let's stick to what user wanted: "Convert timezone" + "No seconds".
+          // Only formatting time-level ticks. For Day level, it usually defaults to date string?
+          // Actually, replacing tickMarkFormatter overrides EVERYTHING.
+
+          // Heuristic:
+          // TickMarkType: Year=0, Month=1, DayOfMonth=2, Time=3, TimeWithSeconds=4
+          if (tickMarkType < 3) {
+            return date.toLocaleDateString(locale);
+          }
+          return date.toLocaleTimeString(locale, {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false
+          });
+        },
       },
       rightPriceScale: {
         borderColor: '#2b2f3a',
+      },
+      localization: {
+        // Use browser's local timezone
+        timeFormatter: (timestamp: number) => {
+          const date = new Date(timestamp * 1000);
+          const d = date.getDate().toString().padStart(2, '0');
+          const m = (date.getMonth() + 1).toString().padStart(2, '0');
+          const y = date.getFullYear();
+          const h = date.getHours().toString().padStart(2, '0');
+          const min = date.getMinutes().toString().padStart(2, '0');
+          return `${d}/${m}/${y} ${h}:${min}`;
+        },
       },
     });
 
@@ -592,6 +627,17 @@ export const CandlestickChart = ({ symbol, intervalSeconds = 60, useMockOnly = f
 
           {hover && hover.time ? (
             <>
+              <span style={{ color: '#d1d4dc', marginRight: 8 }}>
+                {(() => {
+                  const date = new Date((hover.time || 0) * 1000);
+                  const d = date.getDate().toString().padStart(2, '0');
+                  const m = (date.getMonth() + 1).toString().padStart(2, '0');
+                  const y = date.getFullYear();
+                  const h = date.getHours().toString().padStart(2, '0');
+                  const min = date.getMinutes().toString().padStart(2, '0');
+                  return `${d}/${m}/${y} ${h}:${min}`;
+                })()}
+              </span>
               <span style={{ color: '#787b86' }}>
                 O <span className={(hover.open ?? 0) <= (hover.close ?? 0) ? 'text-up' : 'text-down'}>{typeof hover.open === 'number' ? hover.open.toFixed(4) : '-'}</span>
               </span>
