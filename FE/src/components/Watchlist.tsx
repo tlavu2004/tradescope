@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { priceStore } from '../lib/priceStore';
 import { MetricsPanel } from './MetricsPanel';
 import '../styles/Watchlist.css';
+import { getCryptoIcon } from './CryptoIcons';
 
 interface WatchSymbol {
   code: string;
@@ -143,7 +144,7 @@ export const Watchlist = ({ onSymbolSelect, selectedSymbol, metrics }: Watchlist
 
     const handleMouseMove = (moveEvent: MouseEvent) => {
       const deltaX = startX - moveEvent.clientX;
-      const newWidth = Math.min(Math.max(startWidth + deltaX, 250), 500);
+      const newWidth = Math.min(Math.max(startWidth + deltaX, 250), 800);
       setWidth(newWidth);
     };
 
@@ -158,14 +159,7 @@ export const Watchlist = ({ onSymbolSelect, selectedSymbol, metrics }: Watchlist
   }, [width]);
 
   const getSymbolIcon = (code: string) => {
-    const iconMap: Record<string, string> = {
-      'BTCUSDT': '₿',
-      'BTCUSD': '₿',
-      'ETHUSDT': 'Ξ',
-      'BNBUSDT': '◈',
-      'XRPUSDT': '✕',
-    };
-    return iconMap[code] || '₿';
+    return getCryptoIcon(code, 24);
   };
 
   const formatPrice = (price: number, code: string) => {

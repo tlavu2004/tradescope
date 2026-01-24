@@ -1,6 +1,6 @@
 .watchlist {
-  min-width: 450px;
-  max-width: 700px;
+  min-width: 300px;
+  max-width: 800px;
   height: 100%;
   background: var(--bg-panel);
   color: var(--text-primary);
@@ -188,6 +188,7 @@
   display: flex;
   align-items: center;
   padding: 8px;
+  gap: 8px;
   background: var(--bg-app);
   border-bottom: 1px solid var(--border-color);
   font-size: 10px;
@@ -197,8 +198,8 @@
 }
 
 .th-symbol {
-  flex: 1.8;
-  min-width: 90px;
+  flex: 2;
+  min-width: 50px;
 }
 
 .th-price,
@@ -207,21 +208,23 @@
 .th-volume {
   flex: 1;
   text-align: right;
-  min-width: 75px;
+  min-width: 40px;
 }
 
 .watchlist.table-view .watchlist-item {
   display: flex;
   align-items: center;
   padding: 8px;
+  gap: 8px;
 }
 
 .watchlist.table-view .cell-symbol {
-  flex: 1.8;
+  flex: 2;
   display: flex;
   align-items: center;
   gap: 12px;
-  min-width: 90px;
+  min-width: 50px;
+  overflow: hidden;
 }
 
 .watchlist.table-view .cell-price,
@@ -231,30 +234,89 @@
   flex: 1;
   text-align: right;
   font-size: 11px;
-  min-width: 75px;
+  min-width: 40px;
   font-family: var(--font-mono);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+.watchlist.table-view .cell-change {
+  display: flex !important;
+  justify-content: flex-end;
+  align-items: center;
+  padding-left: 4px;
+}
+
 .watchlist.table-view .cell-price.positive,
-.watchlist.table-view .cell-change.positive,
-.watchlist.table-view .cell-percent.positive,
 .watchlist.table-view .cell-volume.positive {
   color: var(--color-up);
 }
 
+.watchlist.table-view .cell-change.positive {
+  background: rgba(38, 166, 154, 0.12);
+  color: var(--color-up);
+  border-radius: 4px;
+  padding: 2px 4px;
+  justify-content: center;
+}
+
 .watchlist.table-view .cell-price.negative,
-.watchlist.table-view .cell-change.negative,
-.watchlist.table-view .cell-percent.negative,
 .watchlist.table-view .cell-volume.negative {
   color: var(--color-down);
 }
 
+.watchlist.table-view .cell-change.negative {
+  background: rgba(239, 83, 80, 0.12);
+  color: var(--color-down);
+  border-radius: 4px;
+  padding: 2px 4px;
+  justify-content: center;
+}
+
+.watchlist.table-view .cell-percent {
+  display: flex !important;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.watchlist.table-view .cell-percent.positive {
+  color: var(--color-up);
+}
+
+.watchlist.table-view .cell-percent.positive::before {
+  content: '';
+  display: inline-block;
+  padding: 2px 6px;
+  background: rgba(38, 166, 154, 0.12);
+  /* Green background */
+  border-radius: 4px;
+  position: absolute;
+  width: 50px;
+  /* Approximately width of content */
+  height: 20px;
+  z-index: -1;
+  right: 0;
+}
+
+.watchlist.table-view .cell-percent.positive {
+  background: rgba(38, 166, 154, 0.12);
+  color: var(--color-up);
+  border-radius: 4px;
+  padding: 2px 4px;
+  justify-content: center;
+}
+
+.watchlist.table-view .cell-percent.negative {
+  background: rgba(239, 83, 80, 0.12);
+  color: var(--color-down);
+  border-radius: 4px;
+  padding: 2px 4px;
+  justify-content: center;
+}
+
 .watchlist.table-view .cell-volume {
   color: var(--text-secondary);
-  /* Default fallback */
 }
 
 .watchlist.table-view .symbol-name {
@@ -458,7 +520,6 @@
 
 .watchlist-items {
   flex: 1;
-  /* Take remaining space */
   overflow-y: auto;
 }
 
@@ -466,6 +527,5 @@
   padding: 12px 16px;
   border-top: 1px solid var(--border-color);
   background: var(--bg-app);
-  /* Match header background or panel? usually bg-app */
   flex-shrink: 0;
 }
