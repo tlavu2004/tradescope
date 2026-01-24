@@ -1,0 +1,29 @@
+{
+  "feature_cols": [
+    "sentiment_score",
+    "breaking_score",
+    "vol_pre_24h",
+    "volume_pre_24h",
+    "rsi_24h",
+    "price_change_24h",
+    "high_low_range_24h",
+    "volume_ma_ratio",
+    "market_cap_rank",
+    "time_of_day",
+    "day_of_week",
+    "news_count_1h",
+    "avg_sentiment_1h",
+    "entity_importance",
+    "keyword_strength",
+    "baseline_ret_1h",
+    "is_breaking_int",
+    "sentiment_extreme"
+  ],
+  "model_name": "Gradient Boosting",
+  "target": "label_1h (based on abret_1h)",
+  "test_accuracy": 0.7738095238095238,
+  "trained_date": "2026-01-24T15:32:59.991915",
+  "threshold": 0.3,
+  "horizon": "1h",
+  "uses_abnormal_return": true
+}
