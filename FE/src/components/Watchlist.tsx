@@ -3,6 +3,7 @@ import { priceStore } from '../lib/priceStore';
 import { MetricsPanel } from './MetricsPanel';
 import '../styles/Watchlist.css';
 import { getCryptoIcon } from './CryptoIcons';
+import { AddSymbolModal } from './AddSymbolModal';
 
 interface WatchSymbol {
   code: string;
@@ -76,6 +77,7 @@ export const Watchlist = ({ onSymbolSelect, selectedSymbol, metrics }: Watchlist
   });
   const [menuOpen, setMenuOpen] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -196,6 +198,30 @@ export const Watchlist = ({ onSymbolSelect, selectedSymbol, metrics }: Watchlist
     });
   };
 
+  const handleToggleSymbol = (symbolCode: string) => {
+    setSymbols(prev => {
+      const exists = prev.find(s => s.code === symbolCode);
+      if (exists) {
+        // Remove
+        return prev.filter(s => s.code !== symbolCode);
+      } else {
+        // Add
+        const newSymbol: WatchSymbol = {
+          code: symbolCode,
+          name: `${symbolCode.replace('USDT', '')} / USDT`,
+          price: 0,
+          change: 0,
+          changePercent: 0,
+          volume: 0,
+          type: 'crypto'
+        };
+        // Subscribe
+        priceStore.subscribe(symbolCode);
+        return [...prev, newSymbol];
+      }
+    });
+  };
+
   return (
     <div
       ref={containerRef}
@@ -212,6 +238,13 @@ export const Watchlist = ({ onSymbolSelect, selectedSymbol, metrics }: Watchlist
       <div className="watchlist-header">
         <h3>Danh sách theo dõi (Crypto)</h3>
         <div className="header-actions">
+          <button
+            className="add-symbol-btn"
+            onClick={() => setIsAddModalOpen(true)}
+            title="Thêm mã"
+          >
+            +
+          </button>
           <div className="menu-container" ref={menuRef}>
             <button
               className="menu-btn"
@@ -381,6 +414,14 @@ export const Watchlist = ({ onSymbolSelect, selectedSymbol, metrics }: Watchlist
           <MetricsPanel {...metrics} />
         </div>
       )}
+
+
+      <AddSymbolModal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        onSelect={handleToggleSymbol}
+        existingSymbols={symbols.map(s => s.code)}
+      />
     </div>
   );
 };
