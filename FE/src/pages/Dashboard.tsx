@@ -12,7 +12,7 @@ export const Dashboard = () => {
   const handleLogout = async () => {
     const accessToken = localStorage.getItem('accessToken');
     try {
-      const API_BASE = (import.meta.env.VITE_API_BASE as string) || 'http://localhost:8082';
+      const API_BASE = (import.meta.env.VITE_API_BASE as string) || 'http://localhost:80';
       if (accessToken) {
         await fetch(`${API_BASE}/api/v1/auth/logout`, {
           method: 'POST',
