@@ -66,7 +66,8 @@ KẾT QUẢ TỔNG HỢP:
 {breakdown_text}
 
 YÊU CẦU:
-1. Giải thích NGẮN GỌN (3-4 câu) tại sao tin này khiến {symbol} {final_prediction} trong {time_context}
+0. Không được thêm từ "Chào bạn" trong câu trả lời
+1. Giải thích NGẮN GỌN nhưng phải đầy đủ, không được ngắt quãng tầm (3-4 câu) tại sao tin này khiến {symbol} {final_prediction} trong {time_context}
 2. Nhấn mạnh {explanation_focus}
 3. Nhấn mạnh entities quan trọng (SEC, BlackRock, Trump, ...)
 4. Đề cập đến các tin khác nếu chúng hỗ trợ hoặc mâu thuẫn
