@@ -90,6 +90,7 @@ export const Register = () => {
               onChange={(e) => setUserName(e.target.value)}
               placeholder="Nhập tên đăng nhập"
               required
+              autoComplete="username"
               disabled={loading}
             />
           </div>
@@ -103,6 +104,7 @@ export const Register = () => {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="Nhập địa chỉ email"
               required
+              autoComplete="email"
               disabled={loading}
             />
           </div>
@@ -116,6 +118,7 @@ export const Register = () => {
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Nhập mật khẩu"
               required
+              autoComplete="new-password"
               disabled={loading}
             />
           </div>
@@ -129,6 +132,7 @@ export const Register = () => {
               onChange={(e) => setConfirmPassword(e.target.value)}
               placeholder="Nhập lại mật khẩu"
               required
+              autoComplete="new-password"
               disabled={loading}
             />
           </div>

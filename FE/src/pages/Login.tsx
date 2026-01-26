@@ -89,6 +89,7 @@ export const Login = () => {
               onChange={(e) => setUserName(e.target.value)}
               placeholder="Nhập tên đăng nhập"
               required
+              autoComplete="username"
               disabled={loading}
             />
           </div>
@@ -102,6 +103,7 @@ export const Login = () => {
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Nhập mật khẩu"
               required
+              autoComplete="current-password"
               disabled={loading}
             />
           </div>
