@@ -25,6 +25,7 @@ export const Dashboard = () => {
     } finally {
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
+      localStorage.removeItem('role');
       navigate('/login');
     }
   };
@@ -59,6 +60,30 @@ export const Dashboard = () => {
           </div>
         </div>
         <div className="header-right">
+          {localStorage.getItem('role') === 'ADMIN' && (
+            <button
+              className="admin-btn"
+              onClick={() => navigate('/admin')}
+              style={{
+                marginRight: '10px',
+                padding: '8px 12px',
+                background: '#e67e22',
+                border: 'none',
+                borderRadius: '4px',
+                color: 'white',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 12C14.21 12 16 10.21 16 8C16 5.79 14.21 4 12 4C9.79 4 8 5.79 8 8C8 10.21 9.79 12 12 12ZM12 14C9.33 14 4 15.34 4 18V20H20V18C20 15.34 14.67 14 12 14Z" fill="currentColor" />
+              </svg>
+              Admin Dashboard
+            </button>
+          )}
+
           <button className="logout-btn" onClick={handleLogout}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ marginRight: 6 }}>
               <path d="M17 16L21 12M21 12L17 8M21 12L7 12M13 16V17C13 18.6569 11.6569 20 10 20H6C4.34315 20 3 18.6569 3 17V7C3 5.34315 4.34315 4 6 4H10C11.6569 4 13 5.34315 13 7V8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -107,6 +132,6 @@ export const Dashboard = () => {
           metrics={metrics}
         />
       </div>
-    </div>
+    </div >
   );
 };

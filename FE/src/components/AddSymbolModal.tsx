@@ -68,6 +68,7 @@ export const AddSymbolModal: React.FC<AddSymbolModalProps> = ({ isOpen, onClose,
             placeholder="Tìm kiếm mã (ví dụ: BTC, ETH...)"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
+            autoComplete="off"
           />
         </div>
 
