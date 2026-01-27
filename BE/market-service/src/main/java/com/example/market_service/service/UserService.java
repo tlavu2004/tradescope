@@ -11,6 +11,7 @@ import com.example.market_service.enums.Role;
 import com.example.market_service.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -36,10 +37,31 @@ public class UserService {
 		User user = userMapper.toEntity(request);
 		return userMapper.toResponse(userRepository.save(user));
 	}
+
 	public UserResponse upToVip(Long userId) {
 		User user = userRepository.findById(userId)
 				.orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 		user.setRole(Role.VIP);
+		return userMapper.toResponse(userRepository.save(user));
+	}
+
+	public List<UserResponse> getAllUsers() {
+		return userRepository.findAll().stream()
+				.map(userMapper::toResponse)
+				.toList();
+	}
+
+	public UserResponse toggleVip(Long userId) {
+		User user = userRepository.findById(userId)
+				.orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+		if (user.getRole() == Role.VIP) {
+			user.setRole(Role.USER);
+		} else if (user.getRole() == Role.USER) {
+			user.setRole(Role.VIP);
+		}
+		// If ADMIN, ignore or toggle? Let's assume we don't toggle ADMIN.
+
 		return userMapper.toResponse(userRepository.save(user));
 	}
 }
