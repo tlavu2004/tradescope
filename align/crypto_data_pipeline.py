@@ -1,12 +1,11 @@
 """
-Pipeline align news-price per news article (SIMPLIFIED - REALTIME READY):
-- Mỗi tin là 1 row riêng (per-article approach)
-- Tính return 1h, 4h, 24h sau tin
-- Tính volatility & volume 24h TRƯỚC tin (realtime-ready)
+Pipeline align news-price WINDOW-BASED (REALTIME READY):
+- Mỗi WINDOW (1h) → 1 row (aggregate TẤT CẢ tin trong window)
+- Predict trực tiếp cho ĐỒNG (UP/DOWN) - KHÔNG CẦN aggregate
+- Tính return 1h, 24h sau window
+- Tính volatility & volume 24h TRƯỚC window (realtime-ready)
 - Tính baseline return & abnormal return (cho classification)
-- Luôn có BTCUSDT + symbols trong tin
-- Classify label (UP/DOWN/NEUTRAL) dựa trên abnormal return
-- BỎ: vol_post, vol_ratio, volume_post, volume_change, max_runup/drawdown
+- Features: aggregate từ TẤT CẢ tin trong window + price features
 """
 
 import pandas as pd
@@ -195,138 +194,64 @@ def fetch_news_from_mongodb(start_date: datetime, end_date: datetime) -> pd.Data
 # ============================================
 
 def get_price_at_time(df_price: pd.DataFrame, target_time: pd.Timestamp) -> Optional[float]:
-    """
-    Lấy giá close của candle gần nhất trước/tại target_time
-    
-    Args:
-        df_price: DataFrame OHLCV (index = timestamp = open_time của candle)
-        target_time: Thời điểm cần lấy giá
-    
-    Returns:
-        Giá close (float) hoặc None
-    """
+    """Lấy giá close của candle gần nhất trước/tại target_time"""
     if df_price.empty:
         return None
     
-    # Lấy tất cả candles có open_time <= target_time
     candidates = df_price[df_price.index <= target_time]
     
     if candidates.empty:
         return None
     
-    # Lấy candle gần nhất (candle cuối cùng)
     candle = candidates.iloc[-1]
-    
-    # Kiểm tra xem target_time có nằm trong candle không
     open_time = candle.name
     close_time = open_time + timedelta(hours=1)
     
     if open_time <= target_time < close_time:
-        # Target nằm trong candle này -> OK
         return candle['close']
     else:
-        # Target không nằm trong candle (có thể missing data)
-        # Vẫn trả về close của candle gần nhất, nhưng cảnh báo
         time_diff = (target_time - open_time).total_seconds() / 3600
-        if time_diff > 2:  # Cách quá 2h thì warn
+        if time_diff > 2:
             logger.warning(f"Target {target_time} is {time_diff:.1f}h after candle {open_time}")
         return candle['close']
 
 
-def calculate_returns(
-    df_price: pd.DataFrame,
-    news_time: pd.Timestamp
-) -> Tuple[Optional[float], Optional[float], Optional[float], Optional[float], 
-           Optional[float], Optional[float], Optional[float]]:
-    """
-    Tính return sau 1h, 4h, 24h
+def calculate_rsi(prices, period=14):
+    """Tính RSI từ list prices"""
+    if len(prices) < period + 1:
+        return 50.0
     
-    Returns:
-        (price_at_news, price_1h, price_4h, price_24h, ret_1h, ret_4h, ret_24h)
-    """
-    if df_price.empty:
-        return None, None, None, None, None, None, None
+    deltas = np.diff(prices)
+    gains = np.where(deltas > 0, deltas, 0)
+    losses = np.where(deltas < 0, -deltas, 0)
     
-    # Giá tại thời điểm tin
-    price_at_news = get_price_at_time(df_price, news_time)
-    if price_at_news is None:
-        return None, None, None, None, None, None, None
+    avg_gain = np.mean(gains[-period:])
+    avg_loss = np.mean(losses[-period:])
     
-    # Giá sau 1h, 4h, 24h
-    price_1h = get_price_at_time(df_price, news_time + timedelta(hours=1))
-    price_4h = get_price_at_time(df_price, news_time + timedelta(hours=4))
-    price_24h = get_price_at_time(df_price, news_time + timedelta(hours=24))
+    if avg_loss == 0:
+        return 100.0
     
-    # Tính return (%)
-    ret_1h = ((price_1h - price_at_news) / price_at_news * 100) if price_1h else None
-    ret_4h = ((price_4h - price_at_news) / price_at_news * 100) if price_4h else None
-    ret_24h = ((price_24h - price_at_news) / price_at_news * 100) if price_24h else None
-    
-    return price_at_news, price_1h, price_4h, price_24h, ret_1h, ret_4h, ret_24h
+    rs = avg_gain / avg_loss
+    rsi = 100 - (100 / (1 + rs))
+    return rsi
 
-
-def calculate_volatility(df_price: pd.DataFrame, start_time: pd.Timestamp, end_time: pd.Timestamp) -> Optional[float]:
-    """
-    Tính volatility (standard deviation của returns) trong khoảng thời gian
-    
-    Returns:
-        Volatility (%) hoặc None
-    """
-    if df_price.empty:
-        return None
-    
-    # Lấy data trong khoảng thời gian
-    period_data = df_price[(df_price.index >= start_time) & (df_price.index < end_time)]
-    
-    if len(period_data) < 2:
-        return None
-    
-    # Tính returns
-    returns = period_data['close'].pct_change().dropna()
-    
-    if len(returns) == 0:
-        return None
-    
-    # Return standard deviation (annualized)
-    volatility = returns.std() * np.sqrt(24)  # Hourly to daily
-    return volatility * 100  # Convert to percentage
-
-
-
-
-# ============================================
-# CAUSAL ANALYSIS FUNCTIONS (MỚI)
-# ============================================
 
 def calculate_baseline_return(
     df_price: pd.DataFrame,
-    news_time: pd.Timestamp,
+    window_start: pd.Timestamp,
     horizon_hours: int = 24,
     baseline_days: int = 7
 ) -> Optional[float]:
-    """
-    Tính baseline return (trung bình N ngày trước cùng khung giờ)
-    
-    Args:
-        df_price: DataFrame giá OHLCV
-        news_time: Thời điểm tin
-        horizon_hours: Horizon tính return (24h)
-        baseline_days: Số ngày lấy baseline (7)
-    
-    Returns:
-        baseline_ret (%) hoặc None
-    """
+    """Tính baseline return"""
     if df_price.empty:
         return None
     
     rets = []
     
     for i in range(1, baseline_days + 1):
-        # Thời điểm tương ứng N ngày trước
-        t_baseline = news_time - timedelta(days=i)
+        t_baseline = window_start - timedelta(days=i)
         t_end = t_baseline + timedelta(hours=horizon_hours)
         
-        # Lấy giá tại 2 mốc
         price_start = get_price_at_time(df_price, t_baseline)
         price_end = get_price_at_time(df_price, t_end)
         
@@ -337,292 +262,278 @@ def calculate_baseline_return(
     return np.mean(rets) if len(rets) > 0 else None
 
 
-
-
-def classify_label(abret: Optional[float], threshold: float = 0.2) -> str:
+def classify_label(abret: Optional[float], threshold: float = 0.0) -> str:
     """
-    Phân loại label dựa trên abnormal return
+    Phân loại label BINARY (UP/DOWN only)
     
     Args:
         abret: abnormal return (%)
-        threshold: ngưỡng (0.2% mặc định)
+        threshold: ngưỡng (0.0 = bất kỳ biến động nào)
     
     Returns:
-        'UP', 'DOWN', 'NEUTRAL', hoặc 'UNKNOWN'
+        'UP' nếu abret >= 0, 'DOWN' nếu abret < 0
     """
     if abret is None:
         return 'UNKNOWN'
     
-    if abret > threshold:
+    # BINARY: chỉ UP hoặc DOWN (không có NEUTRAL)
+    if abret >= threshold:
         return 'UP'
-    elif abret < -threshold:
-        return 'DOWN'
     else:
-        return 'NEUTRAL'
-
+        return 'DOWN'
 
 # ============================================
-# ALIGN NEWS + PRICE (PER NEWS)
+# ALIGN NEWS + PRICE (WINDOW-BASED)
 # ============================================
-def align_news_price_per_article(
+
+def align_news_price_window(
     df_news: pd.DataFrame,
-    price_data: Dict[str, pd.DataFrame]
+    price_data: Dict[str, pd.DataFrame],
+    window_hours: int = 1
 ) -> pd.DataFrame:
     """
-    Align mỗi tin với price metrics (ENHANCED WITH 11 NEW FEATURES)
-    - Mỗi tin có nhiều rows (1 cho BTC + các symbols khác)
-    - Tính baseline return & abnormal return
-    - Classify label (UP/DOWN/NEUTRAL)
-    - THÊM: 11 features mới (technical indicators, market context, news features)
+    Align theo TIME WINDOW
+    
+    Mỗi window (1h) → 1 row → aggregate TẤT CẢ tin trong window
     """
     aligned_rows = []
     
-    total_news = len(df_news)
-    for idx, (_, news_row) in enumerate(df_news.iterrows(), 1):
-        if idx % 100 == 0:
-            logger.info(f"  Processing news {idx}/{total_news}...")
+    # Get time range
+    start_time = df_news['timestamp'].min()
+    end_time = df_news['timestamp'].max()
+    
+    # Create windows
+    current_time = start_time.floor('H')  # Round to hour
+    window_count = 0
+    
+    while current_time <= end_time:
+        window_start = current_time
+        window_end = current_time + timedelta(hours=window_hours)
         
-        news_time = news_row['timestamp']
-        symbols_in_news = news_row['symbols']
+        window_count += 1
+        if window_count % 100 == 0:
+            logger.info(f"  Processing window {window_count}...")
         
-        # Normalize symbols
-        if isinstance(symbols_in_news, list) and len(symbols_in_news) > 0:
-            symbols_normalized = set()
-            for sym in symbols_in_news:
-                sym_upper = sym.upper()
-                if not sym_upper.endswith('USDT'):
-                    sym_upper += 'USDT'
-                symbols_normalized.add(sym_upper)
-        else:
-            symbols_normalized = set()
-        
-        # Luôn thêm BTCUSDT
-        symbols_to_process = {'BTCUSDT'} | symbols_normalized
-        
-        # Base news info
-        base_info = {
-            'news_id': news_row['news_id'],
-            'news_timestamp': news_time,
-            'title': news_row['title'],
-            'sentiment_score': news_row['sentiment_score'],
-            'sentiment_label': news_row['sentiment_label'],
-            'breaking_score': news_row['breaking_score'],
-            'is_breaking': news_row['is_breaking'],
-        }
-        
-        # ===== NEWS FEATURES (TÍNH 1 LẦN CHO TẤT CẢ SYMBOLS) =====
-        
-        # 8. News count 1h trước
-        news_1h_before = df_news[
-            (df_news['timestamp'] >= news_time - timedelta(hours=1)) &
-            (df_news['timestamp'] < news_time)
-        ]
-        news_count_1h = len(news_1h_before)
-        
-        # 9. Avg sentiment 1h trước
-        if news_count_1h > 0:
-            avg_sentiment_1h = news_1h_before['sentiment_score'].mean()
-        else:
-            avg_sentiment_1h = 0.5
-        
-        # 10 & 11. Entity importance & Keyword strength
-        title = news_row['title']
-        
-        # Extract entities (simple version - không cần import nếu chưa có function)
-        ENTITY_IMPORTANCE = {
-            'sec': 10, 'fed': 10, 'cftc': 9,
-            'blackrock': 8, 'fidelity': 8, 'grayscale': 7,
-            'coinbase': 6, 'binance': 6,
-            'elon musk': 8, 'musk': 8, 'trump': 7, 'powell': 7, 'gensler': 7
-        }
-        
-        entity_importance = 0
-        title_lower = title.lower()
-        for entity, score in ENTITY_IMPORTANCE.items():
-            if entity in title_lower:
-                entity_importance += score
-        entity_importance = min(entity_importance, 20)
-        
-        # Extract keywords
-        KEYWORD_STRENGTH = {
-            'approved': 5, 'approval': 5, 'etf approved': 8,
-            'ban': 5, 'banned': 5, 'lawsuit': 4, 'hack': 6,
-            'surge': 3, 'soar': 3, 'crash': 4, 'plunge': 4,
-            'breakthrough': 5, 'adoption': 4
-        }
-        
-        keyword_strength = 0
-        for keyword, score in KEYWORD_STRENGTH.items():
-            if keyword in title_lower:
-                keyword_strength += score
-        keyword_strength = min(keyword_strength, 20)
-        
-        # ===== MARKET CONTEXT (TÍNH 1 LẦN) =====
-        
-        # 6. Time of day (0-23 UTC)
-        time_of_day = news_time.hour
-        
-        # 7. Day of week (0=Mon, 6=Sun)
-        day_of_week = news_time.weekday()
-        
-        # Tạo row cho mỗi symbol
-        for symbol in sorted(symbols_to_process):
+        # Lặp qua từng symbol
+        for symbol in ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT']:
             df_price = price_data.get(symbol, pd.DataFrame())
-            
             if df_price.empty:
                 continue
             
-            # Calculate basic metrics
-            price_at_news, price_1h, price_4h, price_24h, ret_1h, ret_4h, ret_24h = calculate_returns(df_price, news_time)
+            # ===== FILTER TIN TRONG WINDOW =====
+            news_in_window = df_news[
+                (df_news['timestamp'] >= window_start) &
+                (df_news['timestamp'] < window_end)
+            ]
             
-            # ===== CHỈ TÍNH VOL_PRE & VOLUME_PRE (BỎ POST) =====
-            pre_start = news_time - timedelta(hours=24)
+            # Filter theo symbol
+            symbol_short = symbol.replace('USDT', '').upper()
+            news_filtered = []
+            for _, news_row in news_in_window.iterrows():
+                symbols_list = news_row['symbols']
+                if isinstance(symbols_list, list):
+                    if any(symbol_short in str(s).upper() for s in symbols_list):
+                        news_filtered.append(news_row)
             
-            # Volatility 24h TRƯỚC tin
-            vol_pre = calculate_volatility(df_price, pre_start, news_time)
+            news_count = len(news_filtered)
             
-            # Volume 24h TRƯỚC tin
-            pre_data = df_price[(df_price.index >= pre_start) & (df_price.index < news_time)]
-            volume_pre = pre_data['volume'].sum() if not pre_data.empty else None
-            
-            # ===== NEW FEATURES: TECHNICAL INDICATORS =====
-            
-            # 1. RSI 24h
-            if len(pre_data) >= 15:
-                prices = pre_data['close'].values
-                deltas = np.diff(prices)
-                gains = np.where(deltas > 0, deltas, 0)
-                losses = np.where(deltas < 0, -deltas, 0)
-                
-                avg_gain = np.mean(gains[-14:]) if len(gains) >= 14 else 0
-                avg_loss = np.mean(losses[-14:]) if len(losses) >= 14 else 0
-                
-                if avg_loss == 0:
-                    rsi_24h = 100.0
-                else:
-                    rs = avg_gain / avg_loss
-                    rsi_24h = 100 - (100 / (1 + rs))
+            # ===== AGGREGATE NEWS FEATURES =====
+            if news_count == 0:
+                avg_sentiment = 0.5
+                max_sentiment = 0.5
+                min_sentiment = 0.5
+                sentiment_std = 0.0
+                breaking_count = 0
+                avg_breaking_score = 0.0
+                has_sec = 0
+                has_fed = 0
+                has_blackrock = 0
+                has_major_entity = 0
+                positive_keyword_count = 0
+                negative_keyword_count = 0
             else:
-                rsi_24h = 50.0  # Neutral
+                # Sentiment features
+                sentiments = [n['sentiment_score'] for n in news_filtered]
+                avg_sentiment = float(np.mean(sentiments))
+                max_sentiment = float(np.max(sentiments))
+                min_sentiment = float(np.min(sentiments))
+                sentiment_std = float(np.std(sentiments))
+                
+                # Breaking features
+                breaking_count = sum(1 for n in news_filtered if n.get('is_breaking'))
+                breaking_scores = [n.get('breaking_score', 0) for n in news_filtered]
+                avg_breaking_score = float(np.mean(breaking_scores))
+                
+                # Entity & keyword features
+                ENTITY_IMPORTANCE = {
+                    'sec': 1, 'fed': 1, 'cftc': 1,
+                    'blackrock': 1, 'fidelity': 1, 'grayscale': 1
+                }
+                
+                POSITIVE_KEYWORDS = ['approved', 'approval', 'etf', 'surge', 'soar', 'bullish', 'adoption']
+                NEGATIVE_KEYWORDS = ['ban', 'banned', 'lawsuit', 'hack', 'crash', 'plunge', 'bearish']
+                
+                has_sec = 0
+                has_fed = 0
+                has_blackrock = 0
+                positive_keyword_count = 0
+                negative_keyword_count = 0
+                
+                for n in news_filtered:
+                    title_lower = n['title'].lower()
+                    
+                    if 'sec' in title_lower:
+                        has_sec = 1
+                    if 'fed' in title_lower:
+                        has_fed = 1
+                    if 'blackrock' in title_lower:
+                        has_blackrock = 1
+                    
+                    for kw in POSITIVE_KEYWORDS:
+                        if kw in title_lower:
+                            positive_keyword_count += 1
+                    
+                    for kw in NEGATIVE_KEYWORDS:
+                        if kw in title_lower:
+                            negative_keyword_count += 1
+                
+                has_major_entity = max(has_sec, has_fed, has_blackrock)
             
-            # 2. Price change 24h
+            # ===== PRICE FEATURES =====
+            pre_start = window_start - timedelta(hours=24)
+            pre_data = df_price[
+                (df_price.index >= pre_start) &
+                (df_price.index < window_start)
+            ]
+            
+            # Volatility
+            if len(pre_data) > 1:
+                returns = pre_data['close'].pct_change().dropna()
+                vol_pre_24h = float(returns.std() * np.sqrt(24) * 100) if len(returns) > 0 else 1.0
+            else:
+                vol_pre_24h = 1.0
+            
+            # Volume
+            volume_pre_24h = float(pre_data['volume'].sum()) if not pre_data.empty else 0.0
+            
+            # RSI
+            if len(pre_data) >= 15:
+                rsi_24h = calculate_rsi(pre_data['close'].values)
+            else:
+                rsi_24h = 50.0
+            
+            # Price change
             if len(pre_data) >= 2:
-                price_start_24h = pre_data.iloc[0]['close']
-                price_end_24h = pre_data.iloc[-1]['close']
-                price_change_24h = (price_end_24h - price_start_24h) / price_start_24h * 100
+                price_change_24h = float((pre_data.iloc[-1]['close'] - pre_data.iloc[0]['close']) / pre_data.iloc[0]['close'] * 100)
             else:
                 price_change_24h = 0.0
             
-            # 3. High-Low range 24h
+            # High-Low range
             if len(pre_data) >= 1:
-                high_24h = pre_data['high'].max()
-                low_24h = pre_data['low'].min()
-                high_low_range_24h = (high_24h - low_24h) / low_24h * 100 if low_24h > 0 else 0.0
+                high_low_range_24h = float((pre_data['high'].max() - pre_data['low'].min()) / pre_data['low'].min() * 100) if pre_data['low'].min() > 0 else 0.0
             else:
                 high_low_range_24h = 0.0
             
-            # 4. Volume MA ratio
-            ma_start = news_time - timedelta(days=7)
-            candles_7d = df_price[(df_price.index >= ma_start) & (df_price.index < news_time)]
+            # Volume MA ratio
+            ma_start = window_start - timedelta(days=7)
+            candles_7d = df_price[(df_price.index >= ma_start) & (df_price.index < window_start)]
             
             if len(candles_7d) >= 1:
                 volume_ma_7d = candles_7d['volume'].mean()
-                if volume_ma_7d > 0 and volume_pre is not None:
-                    volume_ma_ratio = volume_pre / (volume_ma_7d * 24)  # Normalize by 24h
-                else:
-                    volume_ma_ratio = 1.0
+                volume_ma_ratio = float(volume_pre_24h / (volume_ma_7d * 24)) if volume_ma_7d > 0 else 1.0
             else:
                 volume_ma_ratio = 1.0
             
-            # 5. Market cap rank (hardcoded)
+            # Market cap rank
             MARKET_CAP_RANKS = {
                 'BTCUSDT': 1, 'ETHUSDT': 2, 'BNBUSDT': 3, 'SOLUSDT': 4,
-                'XRPUSDT': 5, 'ADAUSDT': 6, 'DOGEUSDT': 7, 'MATICUSDT': 8,
-                'DOTUSDT': 9, 'LTCUSDT': 10
+                'XRPUSDT': 5, 'ADAUSDT': 6, 'DOGEUSDT': 7
             }
             market_cap_rank = MARKET_CAP_RANKS.get(symbol, 50)
             
-            # ===== CAUSAL METRICS (24H) =====
-            baseline_ret_24h = calculate_baseline_return(
-                df_price, news_time, horizon_hours=24, baseline_days=7
-            )
-
-            if ret_24h is not None and baseline_ret_24h is not None:
-                abret_24h = ret_24h - baseline_ret_24h
-            else:
-                abret_24h = None
-
-            label_24h = classify_label(abret_24h, threshold=0.2)
-
-            # ===== CAUSAL METRICS (1H) =====
-            baseline_ret_1h = calculate_baseline_return(
-                df_price, news_time, horizon_hours=1, baseline_days=7
-            )
-
-            if ret_1h is not None and baseline_ret_1h is not None:
-                abret_1h = ret_1h - baseline_ret_1h
-            else:
-                abret_1h = None
-
-            label_1h = classify_label(abret_1h, threshold=0.3)
+            # ===== FUTURE RETURN (TARGET) =====
+            price_at_window = get_price_at_time(df_price, window_start)
+            price_1h = get_price_at_time(df_price, window_start + timedelta(hours=1))
+            price_24h = get_price_at_time(df_price, window_start + timedelta(hours=24))
             
-            # Skip nếu không có data cơ bản
-            if ret_1h is None and ret_4h is None and ret_24h is None:
+            ret_1h = ((price_1h - price_at_window) / price_at_window * 100) if (price_at_window and price_1h) else None
+            ret_24h = ((price_24h - price_at_window) / price_at_window * 100) if (price_at_window and price_24h) else None
+            
+            # Baseline & abnormal return
+            baseline_ret_1h = calculate_baseline_return(df_price, window_start, 1, 7)
+            baseline_ret_24h = calculate_baseline_return(df_price, window_start, 24, 7)
+            
+            abret_1h = (ret_1h - baseline_ret_1h) if (ret_1h is not None and baseline_ret_1h is not None) else None
+            abret_24h = (ret_24h - baseline_ret_24h) if (ret_24h is not None and baseline_ret_24h is not None) else None
+            
+            label_1h = classify_label(abret_1h, threshold=0.3)
+            label_24h = classify_label(abret_24h, threshold=0.2)
+            
+            # Skip if no label
+            if label_24h == 'UNKNOWN':
                 continue
             
-            # ===== TẠO ROW (THÊM 11 FEATURES MỚI) =====
-            row = base_info.copy()
-            row.update({
+            # ===== CREATE ROW =====
+            row = {
+                'window_start': window_start,
+                'window_end': window_end,
                 'symbol': symbol,
-                'price_at_news': price_at_news,
-                'price_1h': price_1h,
-                'price_4h': price_4h,
-                'price_24h': price_24h,
-                'ret_1h': ret_1h,
-                'ret_4h': ret_4h,
-                'ret_24h': ret_24h,
                 
-                # Existing features (5)
-                'vol_pre_24h': vol_pre,
-                'volume_pre_24h': volume_pre,
-                'baseline_ret_24h': baseline_ret_24h,
-                'abret_24h': abret_24h,
-                'label_24h': label_24h,
-                'baseline_ret_1h': baseline_ret_1h,
-                'abret_1h': abret_1h,
-                'label_1h': label_1h,
-                'label': label_24h,
+                # NEWS (13 features)
+                'news_count': news_count,
+                'avg_sentiment': avg_sentiment,
+                'max_sentiment': max_sentiment,
+                'min_sentiment': min_sentiment,
+                'sentiment_std': sentiment_std,
+                'breaking_count': breaking_count,
+                'avg_breaking_score': avg_breaking_score,
+                'has_sec': has_sec,
+                'has_fed': has_fed,
+                'has_blackrock': has_blackrock,
+                'has_major_entity': has_major_entity,
+                'positive_keyword_count': positive_keyword_count,
+                'negative_keyword_count': negative_keyword_count,
                 
-                # ===== NEW FEATURES (11) =====
-                # Technical indicators (4)
+                # PRICE (6 features)
+                'vol_pre_24h': vol_pre_24h,
+                'volume_pre_24h': volume_pre_24h,
                 'rsi_24h': rsi_24h,
                 'price_change_24h': price_change_24h,
                 'high_low_range_24h': high_low_range_24h,
                 'volume_ma_ratio': volume_ma_ratio,
                 
-                # Market context (3)
+                # CONTEXT (3 features)
                 'market_cap_rank': market_cap_rank,
-                'time_of_day': time_of_day,
-                'day_of_week': day_of_week,
+                'time_of_day': window_start.hour,
+                'day_of_week': window_start.weekday(),
                 
-                # News features (4)
-                'news_count_1h': news_count_1h,
-                'avg_sentiment_1h': avg_sentiment_1h,
-                'entity_importance': entity_importance,
-                'keyword_strength': keyword_strength,
-            })
+                # TARGET
+                'price_at_window': price_at_window,
+                'price_1h': price_1h,
+                'price_24h': price_24h,
+                'ret_1h': ret_1h,
+                'ret_24h': ret_24h,
+                'baseline_ret_1h': baseline_ret_1h,
+                'baseline_ret_24h': baseline_ret_24h,
+                'abret_1h': abret_1h,
+                'abret_24h': abret_24h,
+                'label_1h': label_1h,
+                'label_24h': label_24h,
+            }
             
             aligned_rows.append(row)
+        
+        # Next window
+        current_time = window_end
     
     df_aligned = pd.DataFrame(aligned_rows)
     
-    # Sort by news_timestamp and symbol
-    df_aligned = df_aligned.sort_values(['news_timestamp', 'symbol']).reset_index(drop=True)
-    
-    logger.info(f"✓ Aligned {len(df_aligned)} rows from {total_news} news articles")
-    logger.info(f"✓ Total columns: {len(df_aligned.columns)} (including 11 new features)")
+    logger.info(f"✓ Created {len(df_aligned)} windows from {len(df_news)} news")
+    logger.info(f"  Average {len(df_news) / len(df_aligned):.1f} news per window" if len(df_aligned) > 0 else "  No windows created")
     
     return df_aligned
+
+
 # ============================================
 # FETCH MULTI-SYMBOL PRICES
 # ============================================
@@ -636,7 +547,6 @@ def fetch_all_symbol_prices(
     """Fetch price data cho tất cả symbols"""
     price_data = {}
     
-    # Luôn fetch BTC
     symbols_to_fetch = {'BTCUSDT'} | symbols
     
     for symbol in sorted(symbols_to_fetch):
@@ -652,52 +562,35 @@ def fetch_all_symbol_prices(
     return price_data
 
 
-def get_all_symbols_from_news(df_news: pd.DataFrame) -> Set[str]:
-    """Extract tất cả unique symbols từ news"""
-    all_symbols = set()
-    
-    for symbols_list in df_news['symbols']:
-        if isinstance(symbols_list, list):
-            for sym in symbols_list:
-                sym_upper = sym.upper()
-                if not sym_upper.endswith('USDT'):
-                    sym_upper += 'USDT'
-                all_symbols.add(sym_upper)
-    
-    return all_symbols
-
 # ============================================
 # MAIN PIPELINE
 # ============================================
 
 def run_pipeline(
-    start_date: str = "2025-12-19",
+    start_date: str = "2025-12-01",
     end_date: str = "2026-01-22",
+    window_hours: int = 1,
     save_to_mongodb: bool = True,
     save_to_csv: bool = True
 ):
-    """
-    Pipeline align news-price per article (FULL VERSION - CAUSAL READY)
-    """
+    """Pipeline align news-price WINDOW-BASED"""
     
     logger.info("=" * 70)
-    logger.info("NEWS-PRICE ALIGNMENT PIPELINE (PER NEWS ARTICLE - CAUSAL READY)")
+    logger.info("NEWS-PRICE ALIGNMENT PIPELINE (WINDOW-BASED)")
     logger.info("=" * 70)
     
     try:
-        # Parse dates
         start_dt = datetime.strptime(start_date, "%Y-%m-%d")
         end_dt = datetime.strptime(end_date, "%Y-%m-%d") + timedelta(days=1) - timedelta(seconds=1)
         
-        # Extend price range để có đủ data cho 24h sau tin cuối + baseline 7 ngày
-        price_start_dt = start_dt - timedelta(days=8)  # Buffer 7 ngày cho baseline + 1 ngày
-        price_end_dt = end_dt + timedelta(days=2)      # Buffer 24h sau
+        price_start_dt = start_dt - timedelta(days=8)
+        price_end_dt = end_dt + timedelta(days=2)
         
         start_ts = int(price_start_dt.timestamp() * 1000)
         end_ts = int(price_end_dt.timestamp() * 1000)
         
-        # Step 1: Fetch news
-        logger.info(f"\n[1/4] Fetching news from MongoDB...")
+        # Fetch news
+        logger.info(f"\n[1/3] Fetching news from MongoDB...")
         df_news = fetch_news_from_mongodb(start_dt, end_dt)
         
         if df_news.empty:
@@ -706,33 +599,30 @@ def run_pipeline(
         
         logger.info(f"      ✓ {len(df_news)} news records")
         
-        # Step 2: Get all unique symbols
-        all_symbols = get_all_symbols_from_news(df_news)
-        logger.info(f"\n[2/4] Found {len(all_symbols)} unique symbols in news: {sorted(all_symbols)}")
-        
-        # Step 3: Fetch prices (1h interval, always include BTCUSDT)
-        logger.info(f"\n[3/4] Fetching prices (1h interval, including BTCUSDT)...")
+        # Fetch prices
+        logger.info(f"\n[2/3] Fetching prices (1h interval)...")
+        all_symbols = {'BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT'}
         price_data = fetch_all_symbol_prices(all_symbols, "1h", start_ts, end_ts)
         
         if 'BTCUSDT' not in price_data:
-            logger.error("Failed to fetch BTCUSDT price data!")
+            logger.error("Failed to fetch BTCUSDT!")
             return None
         
-        logger.info(f"      ✓ Fetched price data for {len(price_data)} symbols")
+        logger.info(f"      ✓ Fetched price for {len(price_data)} symbols")
         
-        # Step 4: Align news + price (WITH CAUSAL METRICS)
-        logger.info(f"\n[4/4] Aligning news with price metrics (including causal features)...")
-        df_aligned = align_news_price_per_article(df_news, price_data)
+        # Align
+        logger.info(f"\n[3/3] Aligning (window={window_hours}h)...")
+        df_aligned = align_news_price_window(df_news, price_data, window_hours)
         
         if df_aligned.empty:
             logger.error("No aligned data!")
             return None
         
-        logger.info(f"\n✅ Total aligned: {len(df_aligned)} rows from {len(df_news)} news")
+        logger.info(f"\n✅ Total: {len(df_aligned)} windows")
         
-        # Save results
+        # Save
         if save_to_csv:
-            csv_filename = f"aligned_news_price_per_article_{start_date}_to_{end_date}.csv"
+            csv_filename = f"aligned_news_price_window_{window_hours}h_{start_date}_to_{end_date}.csv"
             df_aligned.to_csv(csv_filename, index=False)
             logger.info(f"✓ CSV saved: {csv_filename}")
         
@@ -740,29 +630,26 @@ def run_pipeline(
             try:
                 client = get_mongodb_connection()
                 db = client[MONGO_DB_NAME]
-                collection = db["Aligned_News_Price_Per_Article"]
+                collection = db["Aligned_News_Price_Window"]
                 
                 records = df_aligned.to_dict('records')
                 
-                # Convert numpy types
                 for record in records:
                     for key, value in record.items():
-                        if isinstance(value, np.integer):
+                        if isinstance(value, (np.integer, np.int64)):
                             record[key] = int(value)
-                        elif isinstance(value, np.floating):
+                        elif isinstance(value, (np.floating, np.float64)):
                             record[key] = float(value) if not np.isnan(value) else None
                         elif pd.isna(value):
                             record[key] = None
                         elif isinstance(value, pd.Timestamp):
                             record[key] = value.to_pydatetime()
                 
-                # Add metadata
                 for record in records:
                     record['created_at'] = datetime.now()
                 
-                # Clear old data
                 collection.delete_many({
-                    "news_timestamp": {"$gte": start_dt, "$lte": end_dt}
+                    "window_start": {"$gte": start_dt, "$lte": end_dt}
                 })
                 
                 if records:
@@ -774,35 +661,28 @@ def run_pipeline(
             except Exception as e:
                 logger.error(f"✗ MongoDB save failed: {e}")
         
-        # Print summary
+        # Summary
         print("\n" + "=" * 70)
-        print("📊 ALIGNED DATASET SUMMARY (CAUSAL READY)")
+        print("📊 WINDOW-BASED DATASET SUMMARY")
         print("=" * 70)
-        print(f"Date range: {df_aligned['news_timestamp'].min()} to {df_aligned['news_timestamp'].max()}")
-        print(f"Total news articles: {df_aligned['news_id'].nunique()}")
-        print(f"Total rows: {len(df_aligned)}")
+        print(f"Window size: {window_hours}h")
+        print(f"Total windows: {len(df_aligned)}")
+        print(f"Date range: {df_aligned['window_start'].min()} to {df_aligned['window_end'].max()}")
         
-        # Count by symbol
-        print(f"\nRows per symbol:")
+        print(f"\nWindows per symbol:")
         for symbol in sorted(df_aligned['symbol'].unique()):
             count = len(df_aligned[df_aligned['symbol'] == symbol])
-            avg_ret_24h = df_aligned[df_aligned['symbol'] == symbol]['ret_24h'].mean()
-            avg_abret_24h = df_aligned[df_aligned['symbol'] == symbol]['abret_24h'].mean()
-            print(f"  {symbol}: {count} rows (avg ret_24h: {avg_ret_24h:.3f}%, avg abret_24h: {avg_abret_24h:.3f}%)")
+            print(f"  {symbol}: {count}")
         
-        # Label distribution
-        # Label distribution
-        print(f"\nLabel distribution (24H):")
+        print(f"\nLabel distribution (24h):")
         print(df_aligned['label_24h'].value_counts())
-
-        print(f"\nLabel distribution (1H):")
+        
+        print(f"\nLabel distribution (1h):")
         print(df_aligned['label_1h'].value_counts())
         
-        print(f"\nColumns ({len(df_aligned.columns)}):")
+        print(f"\nFeatures ({len(df_aligned.columns)} columns):")
         print(list(df_aligned.columns))
         
-        print(f"\nSample data (first 3 rows):")
-        print(df_aligned.head(3).to_string())
         print("=" * 70 + "\n")
         
         return df_aligned
@@ -813,19 +693,16 @@ def run_pipeline(
         traceback.print_exc()
         return None
 
-# ============================================
-# USAGE
-# ============================================
 
 if __name__ == "__main__":
-    
     print("\n" + "🚀 " * 20)
-    print("NEWS-PRICE ALIGNMENT PIPELINE (REALTIME-READY)")
-    print("Features: vol_pre, volume_pre, baseline_ret, abnormal_ret, label")
+    print("WINDOW-BASED ALIGNMENT PIPELINE")
     print("🚀 " * 20 + "\n")
+    
     df_result = run_pipeline(
         start_date="2025-12-01",
         end_date="2026-01-22",
+        window_hours=1,
         save_to_mongodb=True,
         save_to_csv=True
     )
@@ -834,9 +711,8 @@ if __name__ == "__main__":
     print("🎉 DONE!")
     print("=" * 70)
     if df_result is not None:
-        print(f"✅ Total rows: {len(df_result)}")
-        print(f"✅ Columns: {len(df_result.columns)}")
-        print(f"✅ Features include: vol_pre_24h, volume_pre_24h, baseline_ret_24h, abret_24h, label_24h, label_1h")
+        print(f"✅ Total windows: {len(df_result)}")
+        print(f"✅ Features: 22 (13 news + 6 price + 3 context)")
     else:
-        print("❌ Pipeline failed")
+        print("❌ Failed")
     print("=" * 70 + "\n")
