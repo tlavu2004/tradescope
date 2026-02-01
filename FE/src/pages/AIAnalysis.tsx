@@ -86,7 +86,24 @@ export const AIAnalysis = () => {
       });
 
       if (!response.ok) {
-        throw new Error(`API Error: ${response.statusText}`);
+        let errorMessage = `API Error: ${response.statusText}`;
+        try {
+          const errorData = await response.json();
+          if (errorData.detail) {
+            errorMessage = errorData.detail;
+          }
+        } catch (e) {
+          // Ignore parsing error, use default message
+        }
+
+        // Customize message for 404 (No news found)
+        if (response.status === 404) {
+          if (errorMessage.includes("No news found")) {
+            throw new Error(`No news found for ${symbol} in the last ${hours} hours. Please try increasing the search history or choose another symbol.`);
+          }
+        }
+
+        throw new Error(errorMessage);
       }
 
       const data = await response.json();
