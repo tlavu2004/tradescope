@@ -97,37 +97,38 @@ services:
     networks:
       - crypto-network
   # ============================================
-  # OLLAMA SERVICE (LLM)
   # ============================================
-  ollama:
-    image: ollama/ollama:latest
-    container_name: crypto-ollama
-    restart: unless-stopped
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama_data:/root/.ollama
-      - ./ollama-init.sh:/ollama-init.sh
-    networks:
-      - crypto-network
-    environment:
-      - OLLAMA_HOST=0.0.0.0
-      - OLLAMA_MAX_LOADED_MODELS=1
-      - OLLAMA_NUM_PARALLEL=1
-      - OLLAMA_KEEP_ALIVE=24h
-    entrypoint: ["/bin/bash", "/ollama-init.sh"]
-    healthcheck:
-      test: ["CMD-SHELL", "ollama list | grep -q gemma3 || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 10
-      start_period: 120s # Đợi 2 phút để pull model
-    deploy:
-      resources:
-        limits:
-          memory: 4G
-        reservations:
-          memory: 2G
+  # OLLAMA SERVICE (LLM) - DISABLED, USING HOST OLLAMA
+  # ============================================
+  # ollama:
+  #   image: ollama/ollama:latest
+  #   container_name: crypto-ollama
+  #   restart: unless-stopped
+  #   ports:
+  #     - "11434:11434"
+  #   volumes:
+  #     - ollama_data:/root/.ollama
+  #     - ./ollama-init.sh:/ollama-init.sh
+  #   networks:
+  #     - crypto-network
+  #   environment:
+  #     - OLLAMA_HOST=0.0.0.0
+  #     - OLLAMA_MAX_LOADED_MODELS=1
+  #     - OLLAMA_NUM_PARALLEL=1
+  #     - OLLAMA_KEEP_ALIVE=24h
+  #   entrypoint: ["/bin/bash", "/ollama-init.sh"]
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "ollama list | grep -q gemma3 || exit 1"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 10
+  #     start_period: 120s # Đợi 2 phút để pull model
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         memory: 4G
+  #       reservations:
+  #         memory: 2G
 
   # ============================================
   # AI SERVICE (PYTHON)
@@ -138,16 +139,17 @@ services:
       dockerfile: Dockerfile
     container_name: crypto-ai-service
     restart: unless-stopped
-    depends_on:
-      ollama:
-        condition: service_healthy # ← Đợi ollama ready
+    # depends_on:
+    #   ollama:
+    #     condition: service_healthy
     ports:
       - "8003:8003"
     environment:
       MONGO_URI: "mongodb+srv://nguyenvanvu060104:cryptonews123456@cluster0.mz66r.mongodb.net/cryptonews?retryWrites=true&w=majority&appName=Cluster0&authSource=admin"
       MONGO_DB_NAME: "cryptonews"
-      OLLAMA_API: "http://ollama:11434/api/generate"
-      OLLAMA_MODEL: "gemma3:1b" # ← GIỮ NGUYÊN
+      # Ollama on HOST (not container)
+      OLLAMA_API: "http://host.docker.internal:11434/api/generate"
+      OLLAMA_MODEL: "gemma3:1b"
       PYTHONUNBUFFERED: "1"
     volumes:
       - ./BE/ai-service:/app

@@ -5,14 +5,14 @@ Dùng TẤT CẢ tin (không cần rank tin quan trọng nhất)
 """
 
 import requests
+import os
 from typing import List, Dict
 from datetime import datetime
 
-# Ollama config
-import os
+# Ollama config - READ FROM ENVIRONMENT
+OLLAMA_API = os.getenv("OLLAMA_API", "http://host.docker.internal:11434/api/generate")
+MODEL = os.getenv("OLLAMA_MODEL", "gemma3:1b")
 
-OLLAMA_API = os.getenv("OLLAMA_API", "http://ollama:11434/api/generate")  # ← SỬA: ollama thay vì localhost
-MODEL = os.getenv("OLLAMA_MODEL", "gemma3:1b")  # ← SỬA: gemma3:1b
 
 def generate_explanation_window(
     final_prediction: str,
