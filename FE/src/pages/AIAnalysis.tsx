@@ -152,7 +152,7 @@ export const AIAnalysis = () => {
         </div>
       </div>
 
-      <div className="app-content" style={{ flexDirection: 'column', padding: '20px', overflowY: 'auto' }}>
+      <div className="app-content" style={{ flexDirection: 'column', padding: '20px', overflowY: 'scroll' }}>
         <div style={{ maxWidth: '1000px', margin: '0 auto', width: '100%' }}>
 
           <div style={{ marginBottom: '24px' }}>
@@ -160,56 +160,78 @@ export const AIAnalysis = () => {
             <p style={{ color: 'var(--text-secondary)' }}>Get AI-powered predictions based on real-time news sentiment and market data.</p>
           </div>
 
-          {/* Controls */}
           <div style={{
             display: 'flex',
-            gap: '16px',
+            gap: '24px',
             background: 'var(--bg-panel)',
             padding: '20px',
             borderRadius: '8px',
             border: '1px solid var(--border-color)',
             alignItems: 'flex-end',
+            justifyContent: 'center',
             marginBottom: '24px'
           }}>
-            <div style={{ flex: 1 }}>
+            <div style={{ width: '250px' }}>
               <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-secondary)', fontSize: '13px' }}>Symbol</label>
-              <select
-                value={symbol}
-                onChange={(e) => setSymbol(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '8px 12px',
-                  borderRadius: '4px',
-                  border: '1px solid var(--border-color)',
-                  background: 'var(--bg-app)',
-                  color: 'var(--text-primary)'
-                }}
-              >
-                {availableSymbols.length === 0 && <option value="BTCUSDT">BTCUSDT (Default)</option>}
-                {availableSymbols.map(s => (
-                  <option key={s.code} value={s.code}>
-                    {s.code}
-                  </option>
-                ))}
-              </select>
+              <div style={{ position: 'relative' }}>
+                <select
+                  value={symbol}
+                  onChange={(e) => setSymbol(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    paddingRight: '36px', // Make space for custom arrow
+                    borderRadius: '4px',
+                    border: '1px solid var(--border-color)',
+                    background: 'var(--bg-app)',
+                    color: 'var(--text-primary)',
+                    appearance: 'none',
+                    WebkitAppearance: 'none',
+                    MozAppearance: 'none',
+                    backgroundImage: `url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e")`,
+                    backgroundRepeat: 'no-repeat',
+                    backgroundPosition: 'right 16px center',
+                    backgroundSize: '16px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {availableSymbols.length === 0 && <option value="BTCUSDT">BTCUSDT (Default)</option>}
+                  {availableSymbols.map(s => (
+                    <option key={s.code} value={s.code}>
+                      {s.code}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
-            <div style={{ width: '150px' }}>
+            <div style={{ width: '180px' }}>
               <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-secondary)', fontSize: '13px' }}>Horizon</label>
-              <select
-                value={horizon}
-                onChange={(e) => setHorizon(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '8px 12px',
-                  borderRadius: '4px',
-                  border: '1px solid var(--border-color)',
-                  background: 'var(--bg-app)',
-                  color: 'var(--text-primary)'
-                }}
-              >
-                <option value="1h">1 Hour</option>
-                <option value="24h">24 Hours</option>
-              </select>
+              <div style={{ position: 'relative' }}>
+                <select
+                  value={horizon}
+                  onChange={(e) => setHorizon(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    paddingRight: '36px',
+                    borderRadius: '4px',
+                    border: '1px solid var(--border-color)',
+                    background: 'var(--bg-app)',
+                    color: 'var(--text-primary)',
+                    appearance: 'none',
+                    WebkitAppearance: 'none',
+                    MozAppearance: 'none',
+                    backgroundImage: `url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e")`,
+                    backgroundRepeat: 'no-repeat',
+                    backgroundPosition: 'right 16px center',
+                    backgroundSize: '16px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <option value="1h">1 Hour</option>
+                  <option value="24h">24 Hours</option>
+                </select>
+              </div>
             </div>
             <div style={{ width: '150px' }}>
               <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-secondary)', fontSize: '13px' }}>History (Hours)</label>
@@ -233,14 +255,18 @@ export const AIAnalysis = () => {
               onClick={handleAnalyze}
               disabled={loading}
               style={{
-                padding: '10px 24px',
+                width: '160px',
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
                 background: loading ? 'var(--text-secondary)' : '#2962ff',
                 color: 'white',
                 border: 'none',
                 borderRadius: '4px',
                 cursor: loading ? 'not-allowed' : 'pointer',
                 fontWeight: 600,
-                height: '38px'
+                height: '38px',
+                flexShrink: 0
               }}
             >
               {loading ? 'Analyzing...' : 'Analyze Market'}
