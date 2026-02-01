@@ -203,6 +203,7 @@ public class BinanceService {
 
 			@Override
 			public void onMessage(String message) {
+				if (!isRunning.get()) return;
 				try {
 					com.fasterxml.jackson.databind.JsonNode node = objectMapper.readTree(message);
 					com.fasterxml.jackson.databind.JsonNode data = node.get("data");
