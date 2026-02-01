@@ -1,0 +1,290 @@
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import '../App.css';
+
+interface NewsInfo {
+  news_id: string;
+  timestamp: string;
+  title: string;
+  sentiment_score: number;
+  is_breaking: boolean;
+}
+
+interface PredictResponse {
+  symbol: string;
+  horizon: string;
+  final_prediction: string;
+  final_confidence: number;
+  total_news_analyzed: number;
+  explanation: string;
+  top_news: NewsInfo[];
+  timestamp: string;
+}
+
+export const AIAnalysis = () => {
+  const navigate = useNavigate();
+
+  // Form State
+  const [symbol, setSymbol] = useState('BTCUSDT');
+  const [horizon, setHorizon] = useState('24h');
+  const [hours, setHours] = useState(6);
+
+  // UI State
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<PredictResponse | null>(null);
+
+  const handleAnalyze = async () => {
+    setLoading(true);
+    setError(null);
+    setResult(null);
+
+    try {
+      const API_BASE = (import.meta.env.VITE_API_BASE as string) || 'http://localhost:80';
+      const response = await fetch(`${API_BASE}/api/ai/predict`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          symbol,
+          horizon,
+          hours
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`API Error: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      setResult(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="app">
+      {/* Header */}
+      <div className="app-header">
+        <div className="header-left">
+          <div className="app-logo" style={{ cursor: 'pointer' }} onClick={() => navigate('/')}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="#2962ff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M2 17L12 22L22 17" stroke="#2962ff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M2 12L12 17L22 12" stroke="#2962ff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            <span>TradeScope AI</span>
+          </div>
+        </div>
+        <div className="header-right">
+          <button
+            className="tool-btn"
+            onClick={() => navigate('/')}
+            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+          >
+            ← Back to Dashboard
+          </button>
+        </div>
+      </div>
+
+      <div className="app-content" style={{ flexDirection: 'column', padding: '20px', overflowY: 'auto' }}>
+        <div style={{ maxWidth: '1000px', margin: '0 auto', width: '100%' }}>
+
+          <div style={{ marginBottom: '24px' }}>
+            <h1 style={{ fontSize: '24px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '8px' }}>AI Market Analysis</h1>
+            <p style={{ color: 'var(--text-secondary)' }}>Get AI-powered predictions based on real-time news sentiment and market data.</p>
+          </div>
+
+          {/* Controls */}
+          <div style={{
+            display: 'flex',
+            gap: '16px',
+            background: 'var(--bg-panel)',
+            padding: '20px',
+            borderRadius: '8px',
+            border: '1px solid var(--border-color)',
+            alignItems: 'flex-end',
+            marginBottom: '24px'
+          }}>
+            <div style={{ flex: 1 }}>
+              <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-secondary)', fontSize: '13px' }}>Symbol</label>
+              <input
+                type="text"
+                value={symbol}
+                onChange={(e) => setSymbol(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  borderRadius: '4px',
+                  border: '1px solid var(--border-color)',
+                  background: 'var(--bg-app)',
+                  color: 'var(--text-primary)'
+                }}
+              />
+            </div>
+            <div style={{ width: '150px' }}>
+              <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-secondary)', fontSize: '13px' }}>Horizon</label>
+              <select
+                value={horizon}
+                onChange={(e) => setHorizon(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  borderRadius: '4px',
+                  border: '1px solid var(--border-color)',
+                  background: 'var(--bg-app)',
+                  color: 'var(--text-primary)'
+                }}
+              >
+                <option value="1h">1 Hour</option>
+                <option value="24h">24 Hours</option>
+              </select>
+            </div>
+            <div style={{ width: '150px' }}>
+              <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-secondary)', fontSize: '13px' }}>History (Hours)</label>
+              <input
+                type="number"
+                value={hours}
+                onChange={(e) => setHours(Number(e.target.value))}
+                min={1}
+                max={48}
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  borderRadius: '4px',
+                  border: '1px solid var(--border-color)',
+                  background: 'var(--bg-app)',
+                  color: 'var(--text-primary)'
+                }}
+              />
+            </div>
+            <button
+              onClick={handleAnalyze}
+              disabled={loading}
+              style={{
+                padding: '10px 24px',
+                background: loading ? 'var(--text-secondary)' : '#2962ff',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: loading ? 'not-allowed' : 'pointer',
+                fontWeight: 600,
+                height: '38px'
+              }}
+            >
+              {loading ? 'Analyzing...' : 'Analyze Market'}
+            </button>
+          </div>
+
+          {error && (
+            <div style={{ padding: '12px', background: 'rgba(231, 76, 60, 0.1)', border: '1px solid #e74c3c', color: '#e74c3c', borderRadius: '4px', marginBottom: '24px' }}>
+              {error}
+            </div>
+          )}
+
+          {result && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+              {/* Summary Card */}
+              <div style={{ background: 'var(--bg-panel)', borderRadius: '8px', border: '1px solid var(--border-color)', overflow: 'hidden' }}>
+                <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <h3 style={{ fontSize: '16px', fontWeight: 600 }}>Analysis Result for {result.symbol}</h3>
+                  <span style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>{new Date(result.timestamp).toLocaleString()}</span>
+                </div>
+                <div style={{ padding: '24px', display: 'flex', gap: '40px', alignItems: 'center' }}>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: '14px', color: 'var(--text-secondary)', marginBottom: '8px' }}>Prediction ({result.horizon})</div>
+                    <div style={{
+                      fontSize: '32px',
+                      fontWeight: 800,
+                      color: result.final_prediction === 'UP' ? '#26a69a' : '#ef5350'
+                    }}>
+                      {result.final_prediction}
+                    </div>
+                  </div>
+
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                      <span style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>Confidence Score</span>
+                      <span style={{ fontSize: '14px', fontWeight: 600 }}>{(result.final_confidence * 100).toFixed(2)}%</span>
+                    </div>
+                    <div style={{ height: '8px', background: 'var(--bg-app)', borderRadius: '4px', overflow: 'hidden' }}>
+                      <div style={{
+                        height: '100%',
+                        width: `${result.final_confidence * 100}%`,
+                        background: result.final_prediction === 'UP' ? '#26a69a' : '#ef5350'
+                      }} />
+                    </div>
+                  </div>
+
+                  <div style={{ textAlign: 'center', paddingLeft: '40px', borderLeft: '1px solid var(--border-color)' }}>
+                    <div style={{ fontSize: '24px', fontWeight: 700 }}>{result.total_news_analyzed}</div>
+                    <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>News Analyzed</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Explanation */}
+              <div style={{ background: 'var(--bg-panel)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-color)' }}>
+                  <h3 style={{ fontSize: '16px', fontWeight: 600 }}>AI Explanation</h3>
+                </div>
+                <div style={{ padding: '20px', lineHeight: '1.6', fontSize: '15px' }}>
+                  {result.explanation.split('\n').map((line, i) => (
+                    <p key={i} style={{ marginBottom: line.trim() === '' ? '0' : '12px' }}>
+                      {line.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                        .split(/(<strong>.*?<\/strong>)/g)
+                        .map((part, index) =>
+                          part.startsWith('<strong>') ?
+                            <strong key={index}>{part.replace(/<\/?strong>/g, '')}</strong> :
+                            part
+                        )}
+                    </p>
+                  ))}
+                </div>
+              </div>
+
+              {/* News List */}
+              <div style={{ background: 'var(--bg-panel)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-color)' }}>
+                  <h3 style={{ fontSize: '16px', fontWeight: 600 }}>Top Influential News</h3>
+                </div>
+                <div>
+                  {result.top_news.map((news) => (
+                    <div key={news.news_id} style={{
+                      padding: '16px 20px',
+                      borderBottom: '1px solid var(--border-color)',
+                      display: 'flex',
+                      gap: '16px'
+                    }}>
+                      <div style={{
+                        width: '4px',
+                        background: news.sentiment_score > 0.6 ? '#26a69a' : (news.sentiment_score < 0.4 ? '#ef5350' : '#f1c40f'),
+                        borderRadius: '2px'
+                      }} />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '6px' }}>
+                          {news.is_breaking && (
+                            <span style={{ fontSize: '10px', background: '#e74c3c', color: 'white', padding: '2px 6px', borderRadius: '4px', fontWeight: 700 }}>BREAKING</span>
+                          )}
+                          <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{new Date(news.timestamp).toLocaleString()}</span>
+                          <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>• Sentiment: {news.sentiment_score.toFixed(2)}</span>
+                        </div>
+                        <div style={{ fontSize: '15px', fontWeight: 500 }}>{news.title}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+            </div>
+          )}
+
+        </div>
+      </div>
+    </div>
+  );
+};
