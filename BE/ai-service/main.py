@@ -98,7 +98,7 @@ async def health():
 # ============================================
 
 @app.post("/api/predict", response_model=PredictResponse)
-async def predict_endpoint(request: PredictRequest):
+def predict_endpoint(request: PredictRequest):
     """
     Predict crypto price movement (UP/DOWN) - WINDOW-BASED
     
