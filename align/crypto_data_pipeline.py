@@ -568,7 +568,7 @@ def fetch_all_symbol_prices(
 
 def run_pipeline(
     start_date: str = "2025-12-01",
-    end_date: str = "2026-01-22",
+    end_date: str = "2026-02-02",
     window_hours: int = 1,
     save_to_mongodb: bool = True,
     save_to_csv: bool = True
@@ -701,7 +701,7 @@ if __name__ == "__main__":
     
     df_result = run_pipeline(
         start_date="2025-12-01",
-        end_date="2026-01-22",
+        end_date="2026-02-02",
         window_hours=1,
         save_to_mongodb=True,
         save_to_csv=True

@@ -49,7 +49,7 @@ DATA_CONFIG = {
     "default_symbol": "BTCUSDT",
     "default_interval": "1h",
     "default_start_date": "2025-12-01",  # ← FIXED
-    "default_end_date": "2026-01-22",
+    "default_end_date": "2026-02-02",
     
     "symbols": [
         "BTCUSDT", "ETHUSDT", "BNBUSDT", "ADAUSDT", "SOLUSDT",
@@ -242,7 +242,7 @@ PRESETS = {
         "symbol": "BTCUSDT",
         "interval": "1h",
         "start_date": "2026-01-20",
-        "end_date": "2026-01-22",
+        "end_date": "2026-02-02",
         "save_to_mongodb": False,
         "save_to_csv": True
     },
@@ -251,7 +251,7 @@ PRESETS = {
         "symbol": "BTCUSDT",
         "interval": "1h",
         "start_date": "2025-12-01",
-        "end_date": "2026-01-22",
+        "end_date": "2026-02-02",
         "save_to_mongodb": True,
         "save_to_csv": True
     },
@@ -260,13 +260,13 @@ PRESETS = {
         "symbols": ["BTCUSDT", "ETHUSDT", "BNBUSDT"],
         "interval": "1h",
         "start_date": "2025-12-01",
-        "end_date": "2026-01-22"
+        "end_date": "2026-02-02"
     },
     
     "multi_timeframe": {
         "symbol": "BTCUSDT",
         "intervals": ["1h", "24h"],
         "start_date": "2025-12-01",
-        "end_date": "2026-01-22"
+        "end_date": "2026-02-02"
     }
 }
