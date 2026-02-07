@@ -70,7 +70,11 @@ export const AdminDashboard = () => {
       if (response.ok) {
         const result = await response.json();
         // Update local state to reflect change immediately
-        setUsers(users.map(u => u.id === userId ? { ...u, role: result.data.role } : u));
+        setUsers(users.map(u => u.id === userId ? {
+          ...u,
+          role: result.data.role,
+          vipEndAt: result.data.vipEndAt
+        } : u));
       } else {
         alert('Cập nhật thất bại');
       }
