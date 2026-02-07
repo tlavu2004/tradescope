@@ -252,7 +252,7 @@ export const News = () => {
 
             {/* Left Pane: News List */}
             <div style={{
-              width: '400px',
+              width: '320px',
               background: 'var(--bg-panel)',
               borderRadius: '8px',
               border: '1px solid var(--border-color)',
