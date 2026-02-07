@@ -1,3 +1,55 @@
+server:
+  port: 8088
+
 spring:
   application:
     name: auth-service
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/authdb?TimeZone=UTC
+    username: postgres
+    password: postgres123
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      connection-timeout: 30000
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: redis123
+      timeout: 2000ms
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        jdbc:
+          time_zone: UTC
+
+  jackson:
+    time-zone: UTC
+
+jwt:
+  secret: your_jwt_secret_key_12333333333333333333333
+  access-time: 360000000
+  refresh-time: 864000000
+
+google:
+  clientId: ${GOOGLE_CLIENT_ID:830106511321-pfkrcmes2fqg4n102aopnjfhefftl7lp.apps.googleusercontent.com}
+
+cache:
+  expires:
+    "[user.details]": 1m
+    "[auth.invalidatedTokens]": 24h
+
+logging:
+  level:
+    root: INFO
+    com.example.auth_service: DEBUG

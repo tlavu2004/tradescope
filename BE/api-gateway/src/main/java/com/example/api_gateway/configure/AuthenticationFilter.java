@@ -23,7 +23,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
-
+import org.springframework.util.AntPathMatcher;
 import java.util.List;
 
 
@@ -32,10 +32,11 @@ import java.util.List;
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PACKAGE, makeFinal = true)
 public class AuthenticationFilter implements GlobalFilter, Ordered {
+	private static final AntPathMatcher pathMatcher = new AntPathMatcher();
 	AuthenticationService authenticationService;
 	ObjectMapper objectMapper;
 	private final List<String> publicUrls = List.of(
-
+		"/auth/**"
 	);
 
 	@NonFinal
@@ -45,10 +46,10 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
 	@Override
 	public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
 		log.info("AuthenticationFilter called");
-//		if(isPublicEndpoint(exchange.getRequest())) {
-//			log.info("Public endpoint accessed: {}", exchange.getRequest().getURI().getPath());
-//			return chain.filter(exchange);
-//		}
+		if(isPublicEndpoint(exchange.getRequest())) {
+			log.info("Public endpoint accessed: {}", exchange.getRequest().getURI().getPath());
+			return chain.filter(exchange);
+		}
 		List<String> authHeaders = exchange.getRequest().getHeaders().get(HttpHeaders.AUTHORIZATION);
 		if (CollectionUtils.isEmpty(authHeaders))
 			return unauthenticated(exchange.getResponse());
@@ -69,14 +70,15 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
 				}).onErrorResume(throwable -> unauthenticated(exchange.getResponse()));
 	}
 	private boolean isPublicEndpoint(ServerHttpRequest request) {
-		log.info("request path : {}" ,request.getURI().getPath());
-		log.info("apiPrefix : {}" ,apiPrefix);
-		return publicUrls.stream().anyMatch(publicUrl ->{
-			log.info("publicUrl : {}" ,publicUrl);
-			return request.getURI().getPath().matches(apiPrefix + publicUrl);
-		});
+		String path = request.getURI().getPath();
+		log.info("Request path: {}", path);
 
+		return publicUrls.stream()
+				.anyMatch(publicUrl ->
+						pathMatcher.match(apiPrefix + publicUrl, path)
+				);
 	}
+
 
 
 	@Override

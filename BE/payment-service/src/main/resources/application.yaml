@@ -1,3 +1,41 @@
+server:
+  port: 8089
+
 spring:
   application:
     name: payment-service
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/paymentdb?TimeZone=UTC
+    username: postgres
+    password: postgres123
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      connection-timeout: 30000
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        jdbc:
+          time_zone: UTC
+
+  jackson:
+    time-zone: UTC
+
+vnpay:
+  tmn-code: J7ONSQWU
+  hash-secret: Z06DUF32BD8DMAEVP8M6V3A2DNU6SFLO
+  pay-url: https://sandbox.vnpayment.vn/paymentv2/vpcpay.html
+  return-url: http://localhost:5173/payment-result
+
+logging:
+  level:
+    root: INFO
+    com.example.payment_service: DEBUG
