@@ -1,4 +1,4 @@
-package com.example.market_service.service;
+package com.example.market_service.service.UserService.UserServiceImpl;
 
 import com.example.market_service.Exception.AppException;
 import com.example.market_service.Exception.ErrorCode;
@@ -9,13 +9,14 @@ import com.example.market_service.dto.response.UserResponse;
 import com.example.market_service.entity.User;
 import com.example.market_service.enums.Role;
 import com.example.market_service.repository.UserRepository;
+import com.example.market_service.service.UserService.IUserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
-public class UserService {
+public class UserServiceImpl implements IUserService {
 	private final UserRepository userRepository;
 	private final UserMapper userMapper;
 

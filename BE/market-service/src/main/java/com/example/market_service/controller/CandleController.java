@@ -4,8 +4,8 @@ import com.example.market_service.dto.request.CandleCreationRequest;
 import com.example.market_service.dto.response.ApiResponse;
 import com.example.market_service.dto.response.CandleResponse;
 import com.example.market_service.entity.Candle;
-import com.example.market_service.service.CandleService;
-import com.example.market_service.service.SecurityUtils;
+import com.example.market_service.service.CandleService.ICandleService;
+import com.example.market_service.Utils.SecurityUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
@@ -19,8 +19,8 @@ import java.util.List;
 @RequestMapping("/api/v1/candles")
 @Slf4j
 public class CandleController {
-	private final CandleService candleService;
-	private final SecurityUtils securityUtils;
+	private final ICandleService candleService;
+	private final SecurityUtil securityUtil;
 
 	@PostMapping
 	public ApiResponse<CandleResponse> createCandle(@RequestBody CandleCreationRequest request) {
@@ -47,9 +47,9 @@ public class CandleController {
 	public ApiResponse<List<Candle>> getRecentCandles(
 			@RequestParam("symbol") String symbol,
 			@RequestParam("interval") String interval) {
-		boolean isVip = securityUtils.hasRole("VIP");
+		boolean isVip = securityUtil.hasRole("VIP");
 		log.info("User VIP status: {}", isVip);
-		log.info("currentUser: {}", securityUtils.getAuthentication());
+		log.info("currentUser: {}", securityUtil.getAuthentication());
 		List<Candle> candles = candleService.getRecentCandles(symbol, interval, isVip);
 
 		return ApiResponse.<List<Candle>>builder()

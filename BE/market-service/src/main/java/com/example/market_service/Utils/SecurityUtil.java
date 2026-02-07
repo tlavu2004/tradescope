@@ -1,4 +1,4 @@
-package com.example.market_service.service;
+package com.example.market_service.Utils;
 
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
@@ -9,7 +9,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 @Component
-public class SecurityUtils {
+public class SecurityUtil {
 	public Authentication getAuthentication() {
 		return SecurityContextHolder.getContext().getAuthentication();
 	}

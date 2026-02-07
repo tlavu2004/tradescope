@@ -49,7 +49,7 @@ spring:
 logging:
   level:
     root: INFO
-    com.example.storage_service: INFO
+    com.example.market_service: INFO
 kafka:
   topics:
     closed-candles: closed-candles
@@ -87,4 +87,10 @@ trades:
     - 1h
     - 4h
     - 1d
+vnpay:
+  tmn-code: J7ONSQWU
+  hash-secret: Z06DUF32BD8DMAEVP8M6V3A2DNU6SFLO
+  pay-url: https://sandbox.vnpayment.vn/paymentv2/vpcpay.html
+  return-url: http://localhost:5173
+
 

@@ -1,4 +1,4 @@
-package com.example.market_service.service;
+package com.example.market_service.service.AuthenticationService.Impl;
 
 import com.example.market_service.Exception.AppException;
 import com.example.market_service.Exception.ErrorCode;
@@ -9,6 +9,9 @@ import com.example.market_service.dto.request.RefreshTokenRequest;
 import com.example.market_service.dto.response.AuthenticationResponse;
 import com.example.market_service.entity.User;
 import com.example.market_service.repository.UserRepository;
+import com.example.market_service.service.AuthenticationService.IAuthenticationService;
+import com.example.market_service.service.JwtService;
+import com.example.market_service.service.TokenCacheService;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
 import com.google.api.client.http.javanet.NetHttpTransport;
@@ -25,7 +28,7 @@ import java.util.Collections;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class AuthenticationService {
+public class AuthenticationServiceImpl implements IAuthenticationService {
 	private final UserRepository userRepository;
 
 	private final JwtService jwtService;

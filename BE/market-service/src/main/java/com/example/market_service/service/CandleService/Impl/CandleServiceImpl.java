@@ -1,4 +1,4 @@
-package com.example.market_service.service;
+package com.example.market_service.service.CandleService.Impl;
 
 import com.example.market_service.Configure.TradeProperties;
 import com.example.market_service.Mapper.CandleMapper;
@@ -6,6 +6,7 @@ import com.example.market_service.dto.request.CandleCreationRequest;
 import com.example.market_service.dto.response.CandleResponse;
 import com.example.market_service.entity.Candle;
 import com.example.market_service.repository.CandleRepository;
+import com.example.market_service.service.CandleService.ICandleService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -13,14 +14,11 @@ import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -31,7 +29,7 @@ import java.util.*;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class CandleService {
+public class CandleServiceImpl implements ICandleService {
 	@Value("${binance.rest.base-url:https://api.binance.com/api/v3}")
 	private String baseUrl;
 	private final CandleRepository candleRepository;
