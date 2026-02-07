@@ -68,10 +68,9 @@ public class UserServiceImpl implements IUserService {
 			user.setVipStartAt(null);
 		} else if (user.getRole() == Role.USER) {
 			user.setRole(Role.VIP);
-			// Default 30 days for manual toggle
-			java.time.LocalDateTime now = java.time.LocalDateTime.now();
-			user.setVipStartAt(now);
-			user.setVipEndAt(now.plusDays(30));
+			// Manual toggle by Admin -> Unlimited (null expiration)
+			user.setVipStartAt(java.time.LocalDateTime.now());
+			user.setVipEndAt(null);
 		}
 		// If ADMIN, ignore or toggle? Let's assume we don't toggle ADMIN.
 
