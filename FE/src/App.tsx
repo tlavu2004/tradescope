@@ -8,6 +8,7 @@ import { News } from './pages/News';
 import { AdminDashboard } from './pages/AdminDashboard';
 import { NotFound } from './pages/NotFound';
 import { AIAnalysis } from './pages/AIAnalysis';
+import { Upgrade } from './pages/Upgrade';
 
 function App() {
   // Check if user is authenticated
@@ -55,6 +56,14 @@ function App() {
           element={
             <ProtectedRoute>
               <AIAnalysis />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/upgrade"
+          element={
+            <ProtectedRoute>
+              <Upgrade />
             </ProtectedRoute>
           }
         />
