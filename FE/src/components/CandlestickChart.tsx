@@ -29,7 +29,7 @@ export const CandlestickChart = ({
   const chartRef = useRef<ReturnType<typeof createChart> | null>(null);
   const mockIntervalRef = useRef<number | null>(null);
   const incomingBufferRef = useRef<Array<CandlestickData & { symbol?: string }>>([]);
-  const newsMapRef = useRef<Map<number, string>>(new Map()); // Time (seconds) -> NewsID
+
   const rafIdRef = useRef<number | null>(null);
   const reconnectTimeoutRef = useRef<number | null>(null);
   const smaSeriesRef = useRef<any>(null);
@@ -52,6 +52,15 @@ export const CandlestickChart = ({
   const [showNewsPopover, setShowNewsPopover] = useState(false);
   const [newsList, setNewsList] = useState<any[]>([]);
 
+  // Interval News Popover State (clicked marker)
+  const [intervalNews, setIntervalNews] = useState<{
+    visible: boolean;
+    items: any[];
+    x: number;
+    y: number;
+    rangeLabel: string;
+  }>({ visible: false, items: [], x: 0, y: 0, rangeLabel: '' });
+
   // Click outside to close popover
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -72,8 +81,7 @@ export const CandlestickChart = ({
   // Ref for the latest candle time to anchor the button
   const latestTimeRef = useRef<Time | null>(null);
   const buttonContainerRef = useRef<HTMLDivElement>(null);
-
-  // Metrics refs
+  const newsMapRef = useRef<Map<number, any[]>>(new Map()); // Time (seconds) -> News Items
   const messagesInRef = useRef(0);
   const droppedRef = useRef(0);
   const frameCountRef = useRef(0);
@@ -284,12 +292,31 @@ export const CandlestickChart = ({
     // Handle Clicks
     const onClick = (param: any) => {
       if (!param || !param.time || !newsMapRef.current) return;
+
       const t = (param.time as any).timestamp ?? param.time;
-      // Check if this time has a news item
-      const newsId = newsMapRef.current.get(Number(t));
-      if (newsId) {
-        // Navigate to news page with specific news selected
-        navigate(`/news?symbol=${symbol}&newsId=${encodeURIComponent(newsId)}`);
+      const tNum = Number(t);
+
+      // Check if this time has news items
+      const items = newsMapRef.current.get(tNum);
+
+      if (items && items.length > 0) {
+        // Calculate range label
+        const startDate = new Date(tNum * 1000);
+        const endDate = new Date((tNum + intervalSeconds) * 1000);
+
+        const formatTime = (d: Date) => d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+        // e.g. "14:00 - 15:00" or date if interval is large
+        const rangeLabel = `${startDate.toLocaleDateString()} ${formatTime(startDate)} - ${formatTime(endDate)}`;
+
+        // Get click coordinates for positioning (optional, or center it)
+        // We'll just center it or use a fixed position like a modal
+        setIntervalNews({
+          visible: true,
+          items: items,
+          x: param.point?.x ?? 0,
+          y: param.point?.y ?? 0,
+          rangeLabel
+        });
       }
     };
     (chart as any).subscribeClick(onClick);
@@ -605,33 +632,44 @@ export const CandlestickChart = ({
         const resp = await fetch(`${API_BASE}/api/ai/news?symbol=${symbol}&hours=24`);
         if (!resp.ok) return;
         const data = await resp.json();
-        // data.news_list is Array<NewsInfo>
+
         if (data && data.news_list) {
           const markers: SeriesMarker<Time>[] = [];
           newsMapRef.current.clear();
 
-          // Store latest news for the widget
-          setNewsList(data.news_list.slice(0, 3)); // Keep top 3
+          // Store latest news for the permanent widget
+          setNewsList(data.news_list.slice(0, 3));
 
+          // Group news by candle interval
           data.news_list.forEach((n: any) => {
             let t = Math.floor(new Date(n.timestamp).getTime() / 1000);
 
             // Align timestamp to the grid of the current interval
+            // Use bucket logic to map multiple news to the same candle
             if (intervalSeconds > 0) {
               const remainder = t % intervalSeconds;
               t = t - remainder;
             }
 
-            // Store mapping
-            newsMapRef.current.set(t, n.news_id);
+            // check bounds/sanity
+            if (isNaN(t)) return;
 
+            // Add to map
+            if (!newsMapRef.current.has(t)) {
+              newsMapRef.current.set(t, []);
+            }
+            newsMapRef.current.get(t)?.push(n);
+          });
+
+          // Create ONE marker per unique timestamp
+          newsMapRef.current.forEach((items, t) => {
             markers.push({
               time: t as Time,
               position: 'aboveBar',
-              color: '#e67e22', // Orange for news
+              color: '#F0B90B', // Binance Yellow
               shape: 'arrowDown',
-              text: 'News',
-              size: 1,
+              text: items.length > 1 ? `News (${items.length})` : 'News',
+              size: 2, // slightly larger
             });
           });
 
@@ -1103,6 +1141,106 @@ export const CandlestickChart = ({
         </button>
       </div>
 
+      {/* Interval News Modal (Click on Marker) */}
+      {intervalNews.visible && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            zIndex: 10000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}
+          onClick={() => setIntervalNews(prev => ({ ...prev, visible: false }))}
+        >
+          <div
+            style={{
+              width: 320,
+              maxHeight: '80%',
+              backgroundColor: '#1E222D',
+              border: '1px solid #2B2F3A',
+              borderRadius: 8,
+              boxShadow: '0 8px 16px rgba(0,0,0,0.4)',
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div style={{
+              padding: '12px 16px',
+              borderBottom: '1px solid #2B2F3A',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              backgroundColor: '#2A2E39'
+            }}>
+              <div style={{ color: '#F0B90B', fontWeight: 600, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span>⚡</span> News in Interval
+              </div>
+              <button
+                onClick={() => setIntervalNews(prev => ({ ...prev, visible: false }))}
+                style={{ background: 'none', border: 'none', color: '#787b86', cursor: 'pointer', fontSize: 16 }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Time Range Info */}
+            <div style={{
+              padding: '8px 16px',
+              fontSize: 11,
+              color: '#787B86',
+              borderBottom: '1px solid #2B2F3A',
+              backgroundColor: '#1E222D'
+            }}>
+              Period: <span style={{ color: '#d1d4dc' }}>{intervalNews.rangeLabel}</span>
+            </div>
+
+            {/* List */}
+            <div style={{ overflowY: 'auto', flex: 1, padding: 0 }}>
+              {intervalNews.items.map((news) => (
+                <div
+                  key={news.news_id}
+                  onClick={() => navigate(`/news?symbol=${symbol}&newsId=${encodeURIComponent(news.news_id)}`)}
+                  style={{
+                    padding: '12px 16px',
+                    borderBottom: '1px solid #2B2F3A',
+                    cursor: 'pointer',
+                    transition: 'background 0.2s'
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#2A2E39'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                >
+                  <div style={{ color: '#EAECEF', fontSize: 13, marginBottom: 4, lineHeight: '1.4' }}>
+                    {news.title}
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
+                    <div style={{ color: '#787b86', fontSize: 11 }}>
+                      {new Date(news.timestamp).toLocaleString()}
+                    </div>
+                    {news.url && (
+                      <a
+                        href={news.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ color: '#3498db', fontSize: 11, textDecoration: 'none', fontWeight: 500 }}
+                        onClick={(e) => e.stopPropagation()}
+                        title="Read original source"
+                      >
+                        Source ↗
+                      </a>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
