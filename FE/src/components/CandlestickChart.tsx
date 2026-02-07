@@ -14,6 +14,7 @@ interface CandlestickChartProps {
   onMetricsUpdate?: (metrics: { messagesPerSec: number; bufferSize: number; dropped: number; fps: number }) => void;
   showSMA?: boolean;
   showEMA?: boolean;
+  showNews?: boolean;
 }
 
 export const CandlestickChart = ({
@@ -22,7 +23,8 @@ export const CandlestickChart = ({
   useMockOnly = false,
   onMetricsUpdate,
   showSMA = true,
-  showEMA = true
+  showEMA = true,
+  showNews = true
 }: CandlestickChartProps) => {
   const navigate = useNavigate();
   const chartContainerRef = useRef<HTMLDivElement>(null);
@@ -32,8 +34,10 @@ export const CandlestickChart = ({
 
   const rafIdRef = useRef<number | null>(null);
   const reconnectTimeoutRef = useRef<number | null>(null);
+  const candlestickSeriesRef = useRef<any>(null);
   const smaSeriesRef = useRef<any>(null);
   const emaSeriesRef = useRef<any>(null);
+  const showNewsRef = useRef(showNews); // Track current showNews value
 
   const [hover, setHover] = useState<{
     time?: number | null;
@@ -179,6 +183,10 @@ export const CandlestickChart = ({
       },
     });
 
+
+    // Assign to ref for access in other effects
+    candlestickSeriesRef.current = candlestickSeries;
+
     // --- INDICATORS ---
     // SMA (20) - Yellow
     const smaSeries = (chart as any).addLineSeries({
@@ -244,7 +252,8 @@ export const CandlestickChart = ({
 
         // Check for news
         const t = (param.time as any).timestamp ?? param.time;
-        const hasNews = newsMapRef.current?.has(Number(t));
+        // Only consider news if feature is enabled (use ref to get latest value)
+        const hasNews = showNewsRef.current && newsMapRef.current?.has(Number(t));
 
         // Change cursor if news exists
         if (chartContainerRef.current) {
@@ -291,7 +300,7 @@ export const CandlestickChart = ({
 
     // Handle Clicks
     const onClick = (param: any) => {
-      if (!param || !param.time || !newsMapRef.current) return;
+      if (!param || !param.time || !newsMapRef.current || !showNewsRef.current) return;
 
       const t = (param.time as any).timestamp ?? param.time;
       const tNum = Number(t);
@@ -624,66 +633,6 @@ export const CandlestickChart = ({
     // ACTUAL IMPLEMENTATION: Redefining flush to include indicator updates.
     // (See next chunk for the redefined flush)
 
-    // --- News Markers Fetcher ---
-    const fetchNewsMarkers = async () => {
-      try {
-        const API_BASE = (import.meta.env.VITE_API_BASE as string) || 'http://localhost:80';
-        // Fetch last 24h news
-        const resp = await fetch(`${API_BASE}/api/ai/news?symbol=${symbol}&hours=24`);
-        if (!resp.ok) return;
-        const data = await resp.json();
-
-        if (data && data.news_list) {
-          const markers: SeriesMarker<Time>[] = [];
-          newsMapRef.current.clear();
-
-          // Store latest news for the permanent widget
-          setNewsList(data.news_list.slice(0, 3));
-
-          // Group news by candle interval
-          data.news_list.forEach((n: any) => {
-            let t = Math.floor(new Date(n.timestamp).getTime() / 1000);
-
-            // Align timestamp to the grid of the current interval
-            // Use bucket logic to map multiple news to the same candle
-            if (intervalSeconds > 0) {
-              const remainder = t % intervalSeconds;
-              t = t - remainder;
-            }
-
-            // check bounds/sanity
-            if (isNaN(t)) return;
-
-            // Add to map
-            if (!newsMapRef.current.has(t)) {
-              newsMapRef.current.set(t, []);
-            }
-            newsMapRef.current.get(t)?.push(n);
-          });
-
-          // Create ONE marker per unique timestamp
-          newsMapRef.current.forEach((items, t) => {
-            markers.push({
-              time: t as Time,
-              position: 'aboveBar',
-              color: '#F0B90B', // Binance Yellow
-              shape: 'arrowDown',
-              text: items.length > 1 ? `News (${items.length})` : 'News',
-              size: 2, // slightly larger
-            });
-          });
-
-          markers.sort((a, b) => (a.time as number) - (b.time as number));
-          candlestickSeries.setMarkers(markers);
-        }
-      } catch (e) {
-        console.error('Failed to fetch news markers', e);
-      }
-    };
-
-    // Call news fetcher once on mount
-    fetchNewsMarkers();
-
     // If websocket never opens, start mock updates
     const startMockUpdates = () => {
       if (mockIntervalRef.current) return;
@@ -877,6 +826,77 @@ export const CandlestickChart = ({
     }
   }, [showSMA, showEMA]);
 
+  // Sync showNews ref so event handlers can read the latest value
+  useEffect(() => {
+    showNewsRef.current = showNews;
+  }, [showNews]);
+
+  // Effect to fetch News Markers
+  useEffect(() => {
+    let isMounted = true;
+    const fetchNews = async () => {
+      if (!candlestickSeriesRef.current) return;
+
+      // If news is off, clear and return
+      if (!showNews) {
+        candlestickSeriesRef.current.setMarkers([]);
+        return;
+      }
+
+      try {
+        const API_BASE = (import.meta.env.VITE_API_BASE as string) || 'http://localhost:80';
+        const resp = await fetch(`${API_BASE}/api/ai/news?symbol=${symbol}&hours=24`);
+        if (!resp.ok) return;
+        const data = await resp.json();
+        if (!isMounted) return;
+
+        if (data && data.news_list) {
+          const markers: SeriesMarker<Time>[] = [];
+          newsMapRef.current.clear();
+
+          // Also update the permanent news list if we just fetched
+          setNewsList(data.news_list.slice(0, 3));
+
+          data.news_list.forEach((n: any) => {
+            let t = Math.floor(new Date(n.timestamp).getTime() / 1000);
+            if (intervalSeconds > 0) {
+              const remainder = t % intervalSeconds;
+              t = t - remainder;
+            }
+            if (isNaN(t)) return;
+
+            if (!newsMapRef.current.has(t)) {
+              newsMapRef.current.set(t, []);
+            }
+            newsMapRef.current.get(t)?.push(n);
+          });
+
+          newsMapRef.current.forEach((items, t) => {
+            markers.push({
+              time: t as Time,
+              position: 'aboveBar',
+              color: '#17a2b8',
+              shape: 'arrowDown',
+              text: items.length > 1 ? `News (${items.length})` : 'News',
+              size: 1,
+            });
+          });
+
+          markers.sort((a, b) => (a.time as number) - (b.time as number));
+          if (candlestickSeriesRef.current) {
+            candlestickSeriesRef.current.setMarkers(markers);
+          }
+        }
+      } catch (e) {
+        console.error('Failed to fetch news markers', e);
+      }
+    };
+
+    fetchNews();
+
+    return () => { isMounted = false; };
+  }, [showNews, symbol, intervalSeconds]); // Re-run if these change
+
   return (
     <div
       ref={chartContainerRef}
@@ -1037,14 +1057,14 @@ export const CandlestickChart = ({
             <div style={{
               padding: '12px 16px',
               borderBottom: '1px solid #2B2F3A',
-              color: '#F0B90B',
+              color: '#17a2b8',
               fontWeight: 600,
               fontSize: 14,
               display: 'flex',
               alignItems: 'center',
               gap: 8
             }}>
-              <span>⚡</span> Relevant News
+              <span>📰</span> Relevant News
             </div>
 
             {/* List */}
@@ -1123,8 +1143,8 @@ export const CandlestickChart = ({
             height: 24,
             borderRadius: '50%',
             backgroundColor: showNewsPopover ? '#2A2E39' : '#1E222D', // Subtle dark change
-            border: showNewsPopover ? '1px solid #F0B90B' : '1px solid #2B2F3A',
-            color: '#F0B90B',
+            border: showNewsPopover ? '1px solid #17a2b8' : '1px solid #2B2F3A',
+            color: '#17a2b8',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -1137,7 +1157,7 @@ export const CandlestickChart = ({
           }}
           title="Related News"
         >
-          ⚡
+          📰
         </button>
       </div>
 
@@ -1178,8 +1198,8 @@ export const CandlestickChart = ({
               alignItems: 'center',
               backgroundColor: '#2A2E39'
             }}>
-              <div style={{ color: '#F0B90B', fontWeight: 600, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span>⚡</span> News in Interval
+              <div style={{ color: '#17a2b8', fontWeight: 600, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span>📰</span> News in Interval
               </div>
               <button
                 onClick={() => setIntervalNews(prev => ({ ...prev, visible: false }))}

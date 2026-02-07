@@ -9,6 +9,7 @@ export const Dashboard = () => {
   const [intervalLabel, setIntervalLabel] = useState('1m');
   const [showSMA, setShowSMA] = useState(true);
   const [showEMA, setShowEMA] = useState(true);
+  const [showNews, setShowNews] = useState(true);
   const navigate = useNavigate();
 
   const handleLogout = async () => {
@@ -199,6 +200,22 @@ export const Dashboard = () => {
               {/* Indicator Toggles */}
               <div style={{ display: 'flex', gap: 8, borderLeft: '1px solid #2b2f3a', paddingLeft: 16 }}>
                 <button
+                  onClick={() => setShowNews(!showNews)}
+                  style={{
+                    background: 'none',
+                    border: showNews ? '1px solid #17a2b8' : '1px solid #444',
+                    color: showNews ? '#17a2b8' : '#666',
+                    borderRadius: 4,
+                    padding: '4px 8px',
+                    cursor: 'pointer',
+                    fontSize: 12,
+                    fontWeight: 600
+                  }}
+                  title="Toggle News Markers"
+                >
+                  News
+                </button>
+                <button
                   onClick={() => setShowSMA(!showSMA)}
                   style={{
                     background: 'none',
@@ -240,6 +257,7 @@ export const Dashboard = () => {
             onMetricsUpdate={setMetrics}
             showSMA={showSMA}
             showEMA={showEMA}
+            showNews={showNews}
           />
         </div>
         <Watchlist
