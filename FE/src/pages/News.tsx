@@ -7,6 +7,7 @@ interface NewsInfo {
   timestamp: string;
   title: string;
   content?: string;
+  author?: string; // Added author field
   sentiment_score: number;
   is_breaking: boolean;
 }
@@ -74,7 +75,7 @@ export const News = () => {
     // Let's rely on the URL param effect running once. 
     // If symbol is valid in availableSymbols, it stays. If not, fallback?
     // For now, let's just ensure if URL param set it, we respect it.
-    if (availableSymbols.length > 0 && !availableSymbols.find(s => s.code === symbol)) {
+    if (availableSymbols.length > 0 && !availableSymbols.find(s => s.code === symbol) && symbol !== 'ALL') {
       // Check if it's a valid symbol at all? 
       // If the user navigates with ?symbol=XYZ and XYZ is not in watchlist, 
       // do we want to force it? Maybe yes.
@@ -82,8 +83,12 @@ export const News = () => {
       // Simplified: If symbol is "BTCUSDT" (default) but watchlist doesn't have it? Unlikely.
       const params = new URLSearchParams(window.location.search);
       if (!params.get('symbol')) {
-        setSymbol(availableSymbols[0].code);
+        setSymbol('ALL'); // Default to ALL if current symbol invalid in context
       }
+    } else if (availableSymbols.length === 0 && symbol !== 'ALL') {
+      // Safety: If no symbols, default to ALL (or maybe we should just allow custom input?)
+      // But for now, ALL is safe.
+      setSymbol('ALL');
     }
   }, [availableSymbols]);
 
@@ -194,9 +199,10 @@ export const News = () => {
                   color: 'var(--text-primary)'
                 }}
               >
-                {availableSymbols.map(s => (
+                <option value="ALL">All Followed Symbols</option>
+                {availableSymbols.length > 0 ? availableSymbols.map(s => (
                   <option key={s.code} value={s.code}>{s.code}</option>
-                ))}
+                )) : <option disabled>No symbols in watchlist</option>}
               </select>
             </div>
             <div style={{ minWidth: '150px' }}>
@@ -336,6 +342,10 @@ export const News = () => {
                     paddingBottom: '16px'
                   }}>
                     <span>{new Date(selectedNews.timestamp).toLocaleString()}</span>
+                    <span>|</span>
+                    <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>
+                      {selectedNews.author && selectedNews.author !== 'Unknown' ? selectedNews.author : 'Unknown Author'}
+                    </span>
                     <span>|</span>
                     <span style={{
                       color: selectedNews.sentiment_score > 0.6 ? '#26a69a' : (selectedNews.sentiment_score < 0.4 ? '#ef5350' : '#f1c40f'),
