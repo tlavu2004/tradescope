@@ -153,6 +153,31 @@ export const News = () => {
             ← Back to Dashboard
           </button>
 
+          {(localStorage.getItem('role') === 'ADMIN' || localStorage.getItem('role') === 'VIP') && (
+            <button
+              className="ai-analysis-btn"
+              onClick={() => navigate('/ai-analysis')}
+              style={{
+                padding: '8px 12px',
+                background: '#673ab7',
+                border: 'none',
+                borderRadius: '4px',
+                color: 'white',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M2 17L12 22L22 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M2 12L12 17L22 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              AI Analysis
+            </button>
+          )}
+
           <button className="logout-btn" onClick={() => {
             localStorage.removeItem('accessToken');
             localStorage.removeItem('refreshToken');
