@@ -38,9 +38,8 @@ public class AuthenticationFilter implements GlobalFilter, Ordered {
 	ObjectMapper objectMapper;
 
 	private final List<String> publicUrls = Arrays.asList(
-			"/auth/login",
-			"/auth/login/google",
-			"/auth/refresh-token",
+			"/auth/**",
+			"/users",
 			"/candles/**"
 	);
 

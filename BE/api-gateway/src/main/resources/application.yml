@@ -41,6 +41,20 @@ spring:
             - Path=${app.api-prefix}/candles/**,${app.api-prefix}/users/**
           filters:
             - StripPrefix=2
+    globalcors:
+      corsConfigurations:
+        '[/**]':
+          allowedOrigins:
+            - "*"
+          allowedMethods:
+            - GET
+            - POST
+            - PUT
+            - DELETE
+            - OPTIONS
+          allowedHeaders:
+            - "*"
+          allowCredentials: true
 management:
   endpoints:
     web:

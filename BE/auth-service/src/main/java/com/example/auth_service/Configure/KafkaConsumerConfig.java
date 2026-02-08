@@ -1,4 +1,4 @@
-package com.example.auth_service.config;
+package com.example.auth_service.Configure;
 
 import com.example.auth_service.dto.event.VipUpgradeEvent;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
