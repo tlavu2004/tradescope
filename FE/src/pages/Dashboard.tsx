@@ -29,6 +29,7 @@ export const Dashboard = () => {
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
       localStorage.removeItem('role');
+      localStorage.removeItem('aiAnalysisState');
       navigate('/login');
     }
   };
