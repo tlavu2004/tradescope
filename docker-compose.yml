@@ -16,11 +16,11 @@ services:
       PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./init-db.sh:/docker-entrypoint-initdb.d/init-db.sh  # ✅ Init multiple DBs
+      - ./init-db.sh:/docker-entrypoint-initdb.d/init-db.sh # ✅ Init multiple DBs
     networks:
       - crypto-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -40,7 +40,7 @@ services:
     networks:
       - crypto-network
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "redis123", "ping"]
+      test: [ "CMD", "redis-cli", "-a", "redis123", "ping" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -126,7 +126,7 @@ services:
     networks:
       - crypto-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
+      test: [ "CMD", "curl", "-f", "http://localhost:8003/health" ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -192,7 +192,7 @@ services:
       VNPAY_TMN_CODE: J7ONSQWU
       VNPAY_HASH_SECRET: Z06DUF32BD8DMAEVP8M6V3A2DNU6SFLO
       VNPAY_PAY_URL: https://sandbox.vnpayment.vn/paymentv2/vpcpay.html
-      VNPAY_RETURN_URL: ${VNPAY_RETURN_URL:-http://localhost:5173/payment-result}
+      VNPAY_RETURN_URL: ${VNPAY_RETURN_URL:-http://localhost:80/payment-result}
       KAFKA_TOPICS_VIP_UPGRADE_EVENTS: vip-upgrade-events
       JAVA_OPTS: -Xms128m -Xmx384m
     networks:
@@ -277,7 +277,7 @@ services:
       SPRING_DATA_REDIS_PORT: 6379
       SPRING_DATA_REDIS_PASSWORD: redis123
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
-      AUTH_SERVICE_URL: http://auth-service:8088  # ✅ Auth Service URL
+      AUTH_SERVICE_URL: http://auth-service:8088 # ✅ Auth Service URL
       JAVA_OPTS: -Xms128m -Xmx384m
     networks:
       - crypto-network
@@ -330,7 +330,7 @@ services:
     container_name: crypto-nginx
     restart: unless-stopped
     depends_on:
-      - api-gateway  # ✅ Now depends on Gateway
+      - api-gateway # ✅ Now depends on Gateway
       - ws-service
       - frontend
     ports:
@@ -347,6 +347,7 @@ volumes:
   zookeeper_logs:
   kafka_data:
   ollama_data:
+
 
 networks:
   crypto-network:
