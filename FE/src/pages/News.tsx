@@ -8,6 +8,7 @@ interface NewsInfo {
   title: string;
   content?: string;
   author?: string; // Added author field
+  url?: string;    // Added url field
   sentiment_score: number;
   is_breaking: boolean;
 }
@@ -76,20 +77,12 @@ export const News = () => {
     // If symbol is valid in availableSymbols, it stays. If not, fallback?
     // For now, let's just ensure if URL param set it, we respect it.
     if (availableSymbols.length > 0 && !availableSymbols.find(s => s.code === symbol) && symbol !== 'ALL') {
-      // Check if it's a valid symbol at all? 
-      // If the user navigates with ?symbol=XYZ and XYZ is not in watchlist, 
-      // do we want to force it? Maybe yes.
-      // So let's only fallback if the CURRENT symbol is totally invalid AND not from URL (hard to track source).
-      // Simplified: If symbol is "BTCUSDT" (default) but watchlist doesn't have it? Unlikely.
       const params = new URLSearchParams(window.location.search);
       if (!params.get('symbol')) {
         setSymbol('ALL'); // Default to ALL if current symbol invalid in context
       }
-    } else if (availableSymbols.length === 0 && symbol !== 'ALL') {
-      // Safety: If no symbols, default to ALL (or maybe we should just allow custom input?)
-      // But for now, ALL is safe.
-      setSymbol('ALL');
     }
+    // Removed aggressive fallback for length === 0 to respect URL params during initial load
   }, [availableSymbols]);
 
   const fetchNews = async () => {
@@ -259,7 +252,7 @@ export const News = () => {
 
             {/* Left Pane: News List */}
             <div style={{
-              width: '400px',
+              width: '320px',
               background: 'var(--bg-panel)',
               borderRadius: '8px',
               border: '1px solid var(--border-color)',
@@ -353,6 +346,19 @@ export const News = () => {
                     }}>
                       Sentiment Score: {selectedNews.sentiment_score.toFixed(2)}
                     </span>
+                    {selectedNews.url && (
+                      <>
+                        <span>|</span>
+                        <a
+                          href={selectedNews.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ color: '#3498db', fontWeight: 600, textDecoration: 'none' }}
+                        >
+                          Read Original ↗
+                        </a>
+                      </>
+                    )}
                   </div>
 
                   <div style={{
@@ -365,6 +371,33 @@ export const News = () => {
                       <span style={{ fontStyle: 'italic', color: 'var(--text-secondary)' }}>
                         Content not available for this article.
                       </span>
+                    )}
+
+                    {selectedNews.url && (
+                      <div style={{ marginTop: '30px', borderTop: '1px solid var(--border-color)', paddingTop: '20px' }}>
+                        <a
+                          href={selectedNews.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            padding: '10px 20px',
+                            backgroundColor: '#2962ff',
+                            color: 'white',
+                            textDecoration: 'none',
+                            borderRadius: '4px',
+                            fontWeight: 600,
+                            fontSize: '14px',
+                            transition: 'background 0.2s'
+                          }}
+                          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1e4bd1'}
+                          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#2962ff'}
+                        >
+                          Read Full Article on Source ↗
+                        </a>
+                      </div>
                     )}
                   </div>
                 </div>
